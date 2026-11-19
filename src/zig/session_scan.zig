@@ -93,11 +93,6 @@ fn pathKind(path: std.json.Value) ?[]const u8 {
 
 fn applyPatch(result: *ScanResult, context_size: *u64, operation: std.json.ObjectMap) void {
     const kind = objectInteger(operation, "kind") orelse return;
-    const path = operation.get("k") orelse return;
-    const path_items = switch (path) {
-        .array => |value| value.items,
-        else => return,
-    };
     const operation_value = operation.get("v");
     if (kind == 0) {
         if (operation_value) |root| {
@@ -110,6 +105,11 @@ fn applyPatch(result: *ScanResult, context_size: *u64, operation: std.json.Objec
         }
         return;
     }
+    const path = operation.get("k") orelse return;
+    const path_items = switch (path) {
+        .array => |value| value.items,
+        else => return,
+    };
     if (path_items.len == 0 or !std.mem.eql(u8, pathKind(path_items[0]) orelse return, "requests")) return;
     if (path_items.len == 1) {
         if (kind == 1) {
