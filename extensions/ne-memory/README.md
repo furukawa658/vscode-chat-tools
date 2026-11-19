@@ -30,6 +30,7 @@
 ## What is sent and written
 
 - Correction text and structured response metadata are sent to the selected VS Code language model only after the confirmation prompt.
+- Ne separates the repeated surface instruction from the supported root cause and requires an actionable rule. A malformed or incomplete model proposal is rejected instead of being registered from fallback text.
 - Scanning is limited to the current workspace by default. Enable `ne.scanAllWorkspaces` to scan the local workspace storage for other workspaces.
 - Global rules are written to `globalStorage/github.copilot-chat/memory-tool/memories/user-preferences.instructions.md`.
 - Workspace rules are written to `.github/copilot-instructions.md` in the first workspace folder.

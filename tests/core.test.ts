@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { replaySession, SessionFormatError } from "../src/core/session";
 import { chatSelection, computeUsage, lastRequestState } from "../src/core/usage";
 import { diagnose } from "../src/core/diagnose";
-import { clusterCorrections, detectCorrections, summarizeAiResponse } from "../src/ne/detect";
+import { clusterCorrections, detectCorrections, parseRuleProposal, summarizeAiResponse } from "../src/ne/detect";
 import { buildHandoff } from "../src/core/handoff";
+import { buildSplitHandoff, parseSplitTasks } from "../src/core/split";
 
 const L = (...o: object[]) => o.map((x) => JSON.stringify(x)).join("\n");
 const sample = L(
@@ -99,6 +100,14 @@ describe("ne", () => {
     expect(summary.toolNames).toEqual(["edit_file"]);
     expect(summary.directlyEditedFiles).toEqual(["c:/repo/a.ts"]);
   });
+  test("根本原因と実行可能なルールを検証する", () => {
+    expect(parseRuleProposal(JSON.stringify({
+      rule: "修正前にエラーを環境・型・依存関係の3軸で切り分ける",
+      phenomenon: "同じエラーが再発している",
+      cause: "エラーメッセージだけで推測修正している",
+    })).rule).toContain("環境・型・依存関係");
+    expect(() => parseRuleProposal('{"rule":"anyを使わないで","phenomenon":"型不足"}')).toThrow();
+  });
 });
 
 describe("handoff", () => {
@@ -106,6 +115,30 @@ describe("handoff", () => {
     const t = buildHandoff(replaySession(sample), "STATUS");
     expect(t).toContain("最初の依頼");
     expect(t).toContain("STATUS");
+  });
+
+  test("分割案を型検証しタスク固有の引き継ぎを作る", () => {
+    const tasks = parseSplitTasks(JSON.stringify([{
+      title: "共通関数を整理",
+      goal: "型境界を一箇所へ寄せる",
+      context: "src/core/split.ts の入力検証を分離する",
+      relevantFiles: ["src/core/split.ts"],
+      decisions: ["外部入力は unknown で受ける"],
+      acceptanceChecks: ["bun test tests/core.test.ts"],
+    }]));
+    expect(tasks).toHaveLength(1);
+    expect(() => parseSplitTasks('[{"title":"broken","goal":"x","context":4}]')).toThrow();
+    const session = replaySession(L({
+      kind: 0,
+      v: { requests: [
+        { message: { text: "共通関数の入力検証を整理する" }, response: [{ kind: "markdownContent", value: "src/core/split.ts を分ける" }] },
+        { message: { text: "別のバグも直す" }, response: [{ kind: "markdownContent", value: "無関係な修正" }] },
+      ] },
+    }));
+    const handoff = buildSplitHandoff(session, tasks[0], "src/core/split.ts | 3 +++");
+    expect(handoff).toContain("外部入力は unknown で受ける");
+    expect(handoff).toContain("src/core/split.ts を分ける");
+    expect(handoff).not.toContain("別のバグも直す");
   });
 });
 

@@ -1,12 +1,13 @@
 import * as vscode from "vscode";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { listSessionFiles, loadSession, userText, responseText } from "../core/session";
+import { Json, listSessionFiles, loadSession, userText, responseText } from "../core/session";
 import { computeUsage } from "../core/usage";
 import { diagnose } from "../core/diagnose";
 import { computeUsageWithZig, stopZigScanner, ZigSessionMetadata } from "../core/zig";
 import { diffSummary } from "../core/git";
 import { buildHandoff } from "../core/handoff";
+import { buildSplitHandoff, parseSplitTasks, SplitTask } from "../core/split";
 import { askModel, chatSessionsDir, workspaceFolders, resolveChatLaunchSelection, sendToNewChat } from "../core/workspace";
 
 export function activate(ctx: vscode.ExtensionContext) {
@@ -81,7 +82,7 @@ export function activate(ctx: vscode.ExtensionContext) {
     vscode.commands.registerCommand("tsugi.split", async () => {
       if (!dir || !diagnose(dir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めないため分割できない。");
       const session = loadSession(listSessionFiles(dir)[0].path);
-      const transcript = (session.requests ?? []).slice(-12).map((request: any, index: number) =>
+      const transcript = (session.requests ?? []).slice(-12).map((request: Json, index: number) =>
         `## Exchange ${index + 1}\nUser: ${userText(request).slice(0, 1000)}\nAssistant: ${responseText(request).slice(-1200)}`,
       ).join("\n\n");
       const consent = await vscode.window.showWarningMessage(
@@ -91,18 +92,16 @@ export function activate(ctx: vscode.ExtensionContext) {
       );
       if (!consent) return;
       const response = await askModel(
-        `Find independent implementation tasks that can continue in separate chats. Return only a JSON array. Each item must have string fields title, goal, and context. Do not merge unrelated work.\n\n${transcript}`,
+        `Find independent implementation tasks that can continue in separate chats. Return only a JSON array. Each item must have non-empty string fields title, goal, and context, plus optional string arrays relevantFiles, decisions, and acceptanceChecks. Keep each task isolated and do not merge unrelated work. Include only files, decisions, and checks relevant to that task.\n\n${transcript}`,
         new vscode.CancellationTokenSource().token,
       );
-      const cleaned = response.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-      let tasks: Array<{ title: string; goal: string; context: string }>;
+      let tasks: SplitTask[];
       try {
-        tasks = JSON.parse(cleaned);
-      } catch {
-        return vscode.window.showWarningMessage("Tsugi: the task proposal was not valid JSON. Review the model response and try again.");
+        tasks = parseSplitTasks(response);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "unknown error";
+        return vscode.window.showWarningMessage(`Tsugi: the task proposal was invalid (${message}). Review the model response and try again.`);
       }
-      if (!Array.isArray(tasks)) return vscode.window.showWarningMessage("Tsugi: the task proposal was not an array.");
-      tasks = tasks.filter((task) => task && typeof task.title === "string" && typeof task.goal === "string" && typeof task.context === "string");
       if (tasks.length === 0) return vscode.window.showInformationMessage("Tsugi: no independent tasks were found.");
       const selected = await vscode.window.showQuickPick(tasks.map((task) => ({ label: task.title, description: task.goal, task })), {
         canPickMany: true,
@@ -111,13 +110,13 @@ export function activate(ctx: vscode.ExtensionContext) {
       });
       if (!selected?.length) return;
       const selection = await resolveChatLaunchSelection(session);
-      const common = buildHandoff(session, diffSummary(workspaceFolders()));
-      for (const item of selected) {
+      for (const [index, item] of selected.entries()) {
         const task = item.task;
-        const handoff = `# Task split\n\n## Task\n${task.title}\n\n## Goal\n${task.goal}\n\n## Task context\n${task.context}\n\n${common}`;
+        const gitSummary = task.relevantFiles.length > 0 ? diffSummary(workspaceFolders(), task.relevantFiles) : "";
+        const handoff = buildSplitHandoff(session, task, gitSummary);
         if (vscode.workspace.getConfiguration("tsugi").get<boolean>("saveHandoff", true)) {
           mkdirSync(ctx.globalStorageUri.fsPath, { recursive: true });
-          writeFileSync(join(ctx.globalStorageUri.fsPath, `split-${Date.now()}-${tasks.indexOf(task)}.md`), handoff, "utf8");
+          writeFileSync(join(ctx.globalStorageUri.fsPath, `split-${Date.now()}-${index}.md`), handoff, "utf8");
         }
         await sendToNewChat(handoff, false, selection);
       }
