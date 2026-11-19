@@ -6,6 +6,12 @@ const ScanResult = struct {
     state: u8 = 3,
 };
 
+const Patch = struct {
+    index: u64,
+    value: u64,
+    state: u8,
+};
+
 fn numberAfter(value: []const u8, offset: usize) ?u64 {
     var index = offset;
     while (index < value.len and (value[index] == ' ' or value[index] == '\t' or value[index] == ':')) : (index += 1) {}
@@ -15,7 +21,7 @@ fn numberAfter(value: []const u8, offset: usize) ?u64 {
     return std.fmt.parseInt(u64, value[start..index], 10) catch null;
 }
 
-fn fieldPatch(line: []const u8, field: []const u8) ?struct { index: u64, value: u64, state: u8 } {
+fn fieldPatch(line: []const u8, field: []const u8) ?Patch {
     const prefix = "\"k\":[\"requests\",";
     const prefix_at = std.mem.indexOf(u8, line, prefix) orelse return null;
     const index_at = prefix_at + prefix.len;
@@ -47,7 +53,7 @@ fn previousLine(value: []const u8, end: usize) ?struct { line: []const u8, next:
     return .{ .line = value[start..line_end], .next = start };
 }
 
-fn lastFieldPatch(value: []const u8, field: []const u8, request_index: ?u64) ?struct { index: u64, value: u64, state: u8 } {
+fn lastFieldPatch(value: []const u8, field: []const u8, request_index: ?u64) ?Patch {
     var end = value.len;
     while (previousLine(value, end)) |entry| {
         if (fieldPatch(entry.line, field)) |patch| {
