@@ -7,7 +7,7 @@ Copilot Chatの作業が途切れる場面を、3つの拡張機能でつなぐ�
 | 拡張機能 | こんな場面で使う |
 | --- | --- |
 | [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | 長いチャットの応答が鈍い。使用率を見て、作業内容を新しいチャットへ引き継ぐ |
-| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | 離席中に処理が止まる。静かになったチャットを再開し、Gitのチェックポイントを残す |
+| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | 夜間のAIクレジット予算に達したら厳格に停止し、静かになったチャットを再開してGitのチェックポイントを残す |
 | [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | 同じ修正指示を繰り返す。内容を確認して、再利用できるルールにする |
 | [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | 3つの拡張機能をまとめて導入する |
 

@@ -9,6 +9,7 @@ import { lastRequestState } from "../core/usage";
 import { diagnose } from "../core/diagnose";
 import { checkpoint } from "../core/git";
 import { chatSessionsDir, workspaceFolders, sendToCurrentChat } from "../core/workspace";
+import { calculateSessionCreditDelta, CreditBaseline, hasUnmeasuredCompletedRequest, isBudgetReached, snapshotSessionCredits } from "./budget";
 
 const CONTINUE_PROMPT =
   "作業を続ける。利用者への質問で止まらず、判断できない事項は eien-questions.md に書き、他の作業を先に進める。完了したら完了条件を満たしたか確認して報告する。";
@@ -54,6 +55,8 @@ export function activate(ctx: vscode.ExtensionContext) {
   let active = false;
   let startedAt = 0;
   let interventions = 0;
+  let creditBudget = 0;
+  let creditBaselines: Record<string, CreditBaseline> = {};
   let timer: NodeJS.Timeout | undefined;
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   ctx.subscriptions.push(bar);
@@ -84,6 +87,34 @@ export function activate(ctx: vscode.ExtensionContext) {
     }
   };
 
+  const captureCreditBaselines = () => {
+    if (!dir) return;
+    const next: Record<string, CreditBaseline> = {};
+    for (const file of listSessionFiles(dir)) next[file.path] = snapshotSessionCredits(loadSession(file.path));
+    creditBaselines = next;
+  };
+
+  const consumedCredits = () => {
+    if (!dir) return 0;
+    let consumed = 0;
+    for (const file of listSessionFiles(dir)) {
+      const session = loadSession(file.path);
+      if (hasUnmeasuredCompletedRequest(session, startedAt)) throw new Error(`${file.path} にAIクレジット値のない完了済みリクエストがある`);
+      consumed += calculateSessionCreditDelta(session, creditBaselines[file.path] ?? {}, startedAt);
+    }
+    return consumed;
+  };
+
+  const tripCircuitBreaker = async (reason: string) => {
+    stop(reason);
+    try {
+      await vscode.commands.executeCommand("workbench.action.chat.cancel");
+      report("サーキットブレーカー: 実行中のChatをキャンセル");
+    } catch (error) {
+      report(`サーキットブレーカー: Chatキャンセル失敗: ${(error as Error).message}`);
+    }
+  };
+
   let tickRunning = false;
   const tick = async () => {
     if (!active || !dir || tickRunning) return;
@@ -91,6 +122,14 @@ export function activate(ctx: vscode.ExtensionContext) {
     try {
       const maxHours = cfg().get<number>("maxHours", 8);
       const maxInt = cfg().get<number>("maxInterventions", 20);
+      let consumed: number;
+      try {
+        consumed = consumedCredits();
+      } catch (error) {
+        return void (await tripCircuitBreaker(`厳格モード: クレジット消費量を確認できない: ${(error as Error).message}`));
+      }
+      bar.text = `$(shield) Eien ${consumed.toFixed(2)}/${creditBudget} AIC`;
+      if (isBudgetReached(consumed, creditBudget)) return void (await tripCircuitBreaker(`厳格モード: AIクレジットが予算${creditBudget}へ到達(消費${consumed.toFixed(4)})`));
       if (Date.now() - startedAt > maxHours * 3600_000) return stop(`経過${maxHours}時間の上限`);
       if (interventions >= maxInt) return stop(`介入${maxInt}回の上限`);
       const files = listSessionFiles(dir);
@@ -122,14 +161,36 @@ export function activate(ctx: vscode.ExtensionContext) {
   };
 
   ctx.subscriptions.push(
-    vscode.commands.registerCommand("eien.start", () => {
+    vscode.commands.registerCommand("eien.start", async () => {
+      if (active) return vscode.window.showInformationMessage("Eienはすでに監視中です。");
       if (!dir || !diagnose(dir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めないため開始できない。");
-      active = true;
+      const previousBudget = ctx.globalState.get<number>("eien.nightCreditBudget");
+      const input = await vscode.window.showInputBox({
+        title: "Eien: 厳格なAIクレジット予算",
+        prompt: "今夜Eienに使わせるAIクレジット上限を入力する。上限へ到達するとChatをキャンセルして再開を停止する。",
+        placeHolder: "例: 50",
+        value: previousBudget ? String(previousBudget) : undefined,
+        validateInput: (value) => {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) && parsed > 0 ? undefined : "0より大きい数値を入力してください。";
+        },
+      });
+      if (input === undefined) return;
+      const parsedBudget = Number(input);
+      if (!Number.isFinite(parsedBudget) || parsedBudget <= 0) return;
       startedAt = Date.now();
+      try {
+        captureCreditBaselines();
+      } catch (error) {
+        return vscode.window.showWarningMessage(`クレジット基準値を読めないため開始できない: ${(error as Error).message}`);
+      }
+      await ctx.globalState.update("eien.nightCreditBudget", parsedBudget);
+      creditBudget = parsedBudget;
+      active = true;
       interventions = 0;
-      report("開始");
+      report(`開始: 厳格なAIクレジット予算=${creditBudget}`);
       saveCheckpoint(0, "baseline");
-      bar.text = "$(sync~spin) Eien";
+      bar.text = `$(shield) Eien 0/${creditBudget} AIC`;
       bar.command = "eien.stop";
       bar.show();
       timer = setInterval(() => void tick(), 15000);

@@ -1,7 +1,7 @@
 {
   "name": "eien",
-  "displayName": "Eien - Keep Copilot Chat Running",
-  "description": "Resume stalled Copilot Chat work overnight, save Git checkpoints, and generate a morning report.",
+  "displayName": "Eien - Copilot Chat Circuit Breaker",
+  "description": "Resume stalled Copilot Chat overnight, cap AI credit usage with a strict circuit breaker, and save Git checkpoints.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -25,9 +25,14 @@
     "productivity",
     "night",
     "checkpoint",
-    "git"
+    "git",
+    "circuit-breaker",
+    "budget",
+    "credit-limit",
+    "cost-control",
+    "runaway-protection"
   ],
-  "version": "0.2.3",
+  "version": "0.3.0",
   "activationEvents": [
     "onStartupFinished"
   ],
