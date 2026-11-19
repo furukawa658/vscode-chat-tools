@@ -25,7 +25,8 @@ The longer a chat gets, the more Copilot forgets your instructions and the slowe
 | Fast live usage in the status bar | A resident Zig scanner reads the latest indexed token patches whenever the session file changes, without reconstructing the full chat object for every refresh. |
 | No Zig setup required | Small native scanners ship for Windows, Linux, and macOS. If a scanner cannot read a session, Tsugi falls back to the JavaScript replay implementation. |
 | One-click handoff | Click the status bar to put a handoff prompt into a new chat input. The saved model and mode are inherited when available. |
-| One chat to many task chats | Run `Tsugi: Split into Separate Task Chats`, review the model's task list, and choose one or more tasks to place in separate chats. |
+| One chat to many task chats | Run `Tsugi: Split into Separate Task Chats`, review the proposed independent tasks, and choose one or more tasks to place in separate chat sessions. |
+| Task-filtered split context | Each split prompt contains that task's goal, relevant files, decisions, acceptance checks, matching exchanges, and Git changes limited to those files. |
 | What the handoff contains | The first request, recent exchanges, and the Git state of every workspace folder. |
 | Nothing is sent for you | The text only lands in the input box. You review and edit it before sending. |
 | Optional file copy | The handoff can also be saved to the extension storage (`tsugi.saveHandoff`). |
@@ -36,11 +37,12 @@ The longer a chat gets, the more Copilot forgets your instructions and the slowe
 2. When it turns to the warning color, click it.
 3. Review the handoff prompt in the new chat and send it.
 
-You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate Task Chats` from the Command Palette. Split asks for confirmation before sending the recent transcript to the selected language model, then leaves every new prompt unsent for review.
+You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate Task Chats` from the Command Palette. Split asks for confirmation before sending the recent transcript to the selected language model. It validates the proposed task structure, lets you choose which tasks to create, and leaves every prompt unsent in a separate chat session for review.
 
 ## Privacy
 
-- Nothing is sent to any external service.
+- Handoff itself is not sent anywhere automatically.
+- Split sends the recent transcript to the selected VS Code language model only after the confirmation prompt.
 - Files are only read. The only write is the optional handoff copy.
 
 ## Good to know

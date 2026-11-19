@@ -22,6 +22,30 @@ export interface FrictionCluster {
   uniqueSessions: number;
 }
 
+export interface RuleProposal {
+  rule: string;
+  phenomenon: string;
+  cause: string;
+}
+
+function proposalText(value: Record<string, unknown>, field: keyof RuleProposal): string {
+  const text = value[field];
+  if (typeof text !== "string" || !text.trim()) throw new Error(`${field} must be a non-empty string`);
+  return text.trim();
+}
+
+export function parseRuleProposal(response: string): RuleProposal {
+  const cleaned = response.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
+  const parsed: unknown = JSON.parse(cleaned);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("response must be an object");
+  const value = parsed as Record<string, unknown>;
+  return {
+    rule: proposalText(value, "rule"),
+    phenomenon: proposalText(value, "phenomenon"),
+    cause: proposalText(value, "cause"),
+  };
+}
+
 function editedFiles(parts: Json[]): string[] {
   const files = new Set<string>();
   for (const part of parts) {

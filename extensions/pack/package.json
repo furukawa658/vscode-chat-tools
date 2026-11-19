@@ -2,7 +2,7 @@
   "name": "vscode-chat-tools-pack",
   "displayName": "Tsugi Eien Ne Pack for Copilot Chat",
   "description": "Install Tsugi, Eien, and Ne together to manage Copilot Chat context, resumes, and reusable rules.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "engines": {

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 function git(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, ...env }, maxBuffer: 20 * 1024 * 1024 });
@@ -14,14 +14,28 @@ export function isRepo(cwd: string): boolean {
   }
 }
 
-/** 全フォルダーの変更概要(status + diff --stat)を返す。 */
-export function diffSummary(folders: string[]): string {
+function pathspecsFor(folder: string, files: string[]): string[] {
+  return files.flatMap((file) => {
+    const path = isAbsolute(file) ? relative(folder, file).replaceAll("\\", "/") : file;
+    return path === "" || path === ".." || path.startsWith("../") ? [] : [`:(literal)${path}`];
+  });
+}
+
+/** 全フォルダーまたは指定ファイルの変更概要(status + diff --stat)を返す。 */
+export function diffSummary(folders: string[], files: string[] = []): string {
   const out: string[] = [];
   for (const f of folders) {
     if (!isRepo(f)) continue;
-    const status = git(f, ["status", "--short", "--branch"]).trim();
-    const stat = git(f, ["diff", "HEAD", "--stat"]).trim();
-    out.push(`### ${f}\n\`\`\`\n${status}\n${stat}\n\`\`\``);
+    const patterns = pathspecsFor(f, files);
+    if (files.length > 0 && patterns.length === 0) continue;
+    const pathArgs = files.length > 0 ? ["--", ...patterns] : [];
+    const statusArgs = ["status", "--short", "--branch", ...pathArgs];
+    const statArgs = ["diff", "HEAD", "--stat", ...pathArgs];
+    const status = git(f, statusArgs).trim();
+    const stat = git(f, statArgs).trim();
+    if (files.length === 0 || stat || status.split(/\r?\n/).slice(1).some(Boolean)) {
+      out.push(`### ${f}\n\`\`\`\n${status}\n${stat}\n\`\`\``);
+    }
   }
   return out.join("\n\n");
 }

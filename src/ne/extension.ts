@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { listSessionFiles, loadSession } from "../core/session";
 import { diagnose } from "../core/diagnose";
 import { askModel, chatSessionsDir } from "../core/workspace";
-import { clusterCorrections, Correction, FrictionCluster, detectCorrections } from "./detect";
+import { clusterCorrections, Correction, FrictionCluster, detectCorrections, parseRuleProposal, RuleProposal } from "./detect";
 
 type RuleScope = "Global" | "Workspace";
 
@@ -296,13 +296,13 @@ export function activate(ctx: vscode.ExtensionContext) {
         "Send",
       );
       if (!ok) return;
-      const prompt = `Analyze repeated corrections and return only JSON with string fields rule, phenomenon, and cause. The rule must be one actionable sentence. Include output size, code lines, tools, edited files, and cross-session repetition in the causal reasoning.\n\n${evidenceFor(cluster)}`;
-      const response = (await askModel(prompt, new vscode.CancellationTokenSource().token)).trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
-      let parsed: { rule: string; phenomenon: string; cause: string };
+      const prompt = `Analyze repeated corrections as: surface instruction -> root cause -> actionable rule. Return only JSON with non-empty string fields rule, phenomenon, and cause. Separate the observed user instruction from the inferred process or design failure. The cause must be supported by the evidence and distinguish implementation ordering, change scope, and environment/type/dependency diagnosis where applicable. The rule must state a concrete action or check, not merely repeat the user's phrase. Include output size, code lines, tools, edited files, and cross-session repetition in the causal reasoning.\n\n${evidenceFor(cluster)}`;
+      let parsed: RuleProposal;
       try {
-        parsed = JSON.parse(response);
-      } catch {
-        parsed = { rule: response.split(/\r?\n/)[0], phenomenon: "Repeated correction across chat sessions", cause: "The model could not return structured JSON." };
+        parsed = parseRuleProposal(await askModel(prompt, new vscode.CancellationTokenSource().token));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "unknown error";
+        return vscode.window.showWarningMessage(`Ne: the rule proposal was invalid (${message}). No rule was registered.`);
       }
       await propose({
         id: String(Date.now()),
