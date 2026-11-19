@@ -1,4 +1,7 @@
 node_modules
 dist
+tmp
+.zig-cache
+extensions/tsugi/bin
 *.vsix
 

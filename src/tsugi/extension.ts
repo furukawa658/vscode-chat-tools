@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { listSessionFiles, loadSession, userText, responseText } from "../core/session";
 import { computeUsage } from "../core/usage";
 import { diagnose } from "../core/diagnose";
-import { computeUsageWithZig } from "../core/zig";
+import { computeUsageWithZig, stopZigScanner, ZigSessionMetadata } from "../core/zig";
 import { diffSummary } from "../core/git";
 import { buildHandoff } from "../core/handoff";
 import { askModel, chatSessionsDir, workspaceFolders, resolveChatLaunchSelection, sendToNewChat } from "../core/workspace";
@@ -14,23 +14,43 @@ export function activate(ctx: vscode.ExtensionContext) {
   bar.command = "tsugi.handoff";
   ctx.subscriptions.push(bar);
   const dir = chatSessionsDir(ctx);
+  let metadataCache: (ZigSessionMetadata & { path: string }) | undefined;
+  let zigDisabled = false;
+  let refreshing = false;
 
-  const refresh = () => {
-    if (!dir) return bar.hide();
-    const file = listSessionFiles(dir)[0];
-    if (!file) return bar.hide();
+  const refresh = async () => {
+    if (!dir || refreshing) return bar.hide();
+    refreshing = true;
     try {
+      const file = listSessionFiles(dir)[0];
+      if (!file) return bar.hide();
       const baseOverheadTokens = vscode.workspace.getConfiguration("tsugi").get<number>("baseOverheadTokens", 0);
-      const accelerated = computeUsageWithZig(file.path, ctx.extensionUri.fsPath, baseOverheadTokens);
-      if (!accelerated) {
+      let baseline;
+      if (!metadataCache || metadataCache.path !== file.path || zigDisabled) {
         const diagnosis = diagnose(dir);
         if (!diagnosis.ok) {
           bar.text = "$(warning) Tsugi停止";
           bar.tooltip = `${diagnosis.message}\nVS Code ${vscode.version}。保存形式が変わった可能性がある。`;
           return bar.show();
         }
+        baseline = computeUsage(loadSession(file.path), baseOverheadTokens);
+        if (!baseline) return bar.hide();
+        metadataCache = {
+          path: file.path,
+          contextSize: baseline.contextSize,
+          modelId: baseline.modelId,
+          mode: baseline.mode,
+        };
       }
-      const u = accelerated ?? computeUsage(loadSession(file.path), baseOverheadTokens);
+      let accelerated;
+      if (!zigDisabled) {
+        accelerated = await computeUsageWithZig(file.path, ctx.extensionUri.fsPath, metadataCache, baseOverheadTokens);
+        if (baseline && accelerated && (accelerated.promptTokens !== baseline.promptTokens || accelerated.completionTokens !== baseline.completionTokens)) {
+          zigDisabled = true;
+          accelerated = undefined;
+        }
+      }
+      const u = accelerated ?? baseline ?? computeUsage(loadSession(file.path), baseOverheadTokens);
       if (!u) return bar.hide();
       const pct = Math.round(u.ratio * 100);
       const categories = u.promptBreakdown.map((part) => `${part.label} ${part.percentage}%`).join(" · ");
@@ -41,6 +61,8 @@ export function activate(ctx: vscode.ExtensionContext) {
       bar.show();
     } catch {
       bar.hide();
+    } finally {
+      refreshing = false;
     }
   };
 
@@ -103,11 +125,11 @@ export function activate(ctx: vscode.ExtensionContext) {
   );
   if (dir) {
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(dir, "*.jsonl"));
-    ctx.subscriptions.push(watcher, watcher.onDidCreate(refresh), watcher.onDidChange(refresh), watcher.onDidDelete(refresh));
+    ctx.subscriptions.push(watcher, watcher.onDidCreate(() => void refresh()), watcher.onDidChange(() => void refresh()), watcher.onDidDelete(() => void refresh()));
   }
-  const t = setInterval(refresh, 5000);
-  ctx.subscriptions.push({ dispose: () => clearInterval(t) });
-  refresh();
+  const t = setInterval(() => void refresh(), 5000);
+  ctx.subscriptions.push({ dispose: () => clearInterval(t) }, { dispose: stopZigScanner });
+  void refresh();
 }
 
 export function deactivate() {}

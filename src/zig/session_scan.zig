@@ -80,7 +80,7 @@ fn scanFile(allocator: std.mem.Allocator, path: []const u8) !ScanResult {
     const file = try std.fs.cwd().openFile(path, .{});
     defer file.close();
     const size = try file.getEndPos();
-    const length: usize = @intCast(@min(size, 4 * 1024 * 1024));
+    const length: usize = @intCast(@min(size, 8 * 1024 * 1024));
     const bytes = try allocator.alloc(u8, length);
     defer allocator.free(bytes);
     const offset = size - length;
