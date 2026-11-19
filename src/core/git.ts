@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 
 function git(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, ...env }, maxBuffer: 20 * 1024 * 1024 });
@@ -24,23 +26,36 @@ export function diffSummary(folders: string[]): string {
   return out.join("\n\n");
 }
 
+export class GitIndexLockedError extends Error {}
+
 /** 作業ブランチ・既定インデックスに触れず、一時インデックスで作業ツリーを専用参照へ記録する。 */
 export function checkpoint(cwd: string, refName: string, tmpIndex: string, message: string): string | undefined {
   if (!isRepo(cwd)) return undefined;
+  const reportedIndexLock = git(cwd, ["rev-parse", "--git-path", "index.lock"]).trim();
+  const indexLock = isAbsolute(reportedIndexLock) ? reportedIndexLock : resolve(cwd, reportedIndexLock);
+  if (existsSync(indexLock)) throw new GitIndexLockedError("Git index is locked");
   const env = { GIT_INDEX_FILE: tmpIndex };
-  const hasHead = (() => {
+  const head = (() => {
     try {
-      git(cwd, ["rev-parse", "--verify", "HEAD"]);
-      return true;
+      return git(cwd, ["rev-parse", "--verify", "HEAD"]).trim();
     } catch {
-      return false;
+      return "";
     }
   })();
-  if (hasHead) git(cwd, ["read-tree", "HEAD"], env);
+  const previousCheckpoint = (() => {
+    try {
+      return git(cwd, ["rev-parse", "--verify", refName]).trim();
+    } catch {
+      return "";
+    }
+  })();
+  if (head) git(cwd, ["read-tree", head], env);
   git(cwd, ["add", "-A"], env);
   const tree = git(cwd, ["write-tree"], env).trim();
-  const args = ["commit-tree", tree, "-m", message];
-  if (hasHead) args.push("-p", "HEAD");
+  const isBaseline = /checkpoint #0(?:\s|\(|$)/.test(message);
+  const parent = isBaseline ? head : previousCheckpoint || head;
+  const args = ["-c", "commit.gpgsign=false", "commit-tree", tree, "-m", message];
+  if (parent) args.push("-p", parent);
   const commit = git(cwd, args).trim();
   git(cwd, ["update-ref", refName, commit]);
   return commit;

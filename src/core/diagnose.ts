@@ -12,7 +12,9 @@ export function diagnose(chatSessionsDir: string): Diagnosis {
   try {
     const s = loadSession(files[0].path);
     if (!Array.isArray(s?.requests)) return { ok: false, message: "requests配列がない" };
-    return { ok: true, message: "保存形式を読めた" };
+    const hasTokens = s.requests.some((request: { promptTokens?: unknown }) => typeof request?.promptTokens === "number");
+    if (!hasTokens) return { ok: false, message: "promptTokensがない。Developer: Set Log Level... でGitHub Copilot ChatをDebugまたはTraceに設定する" };
+    return { ok: true, message: "保存形式とトークン情報を読めた" };
   } catch (e) {
     return { ok: false, message: `読み取り失敗: ${(e as Error).message}` };
   }

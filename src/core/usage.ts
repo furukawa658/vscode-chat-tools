@@ -2,25 +2,66 @@ import { Json } from "./session";
 
 export interface Usage {
   promptTokens: number;
+  completionTokens: number;
+  occupiedTokens: number;
   contextSize: number;
   ratio: number;
   modelId: string;
+  mode: string;
+  promptBreakdown: PromptTokenCategory[];
+  toolNames: string[];
 }
 
-/** 最後のリクエストのpromptTokensを現在のコンテキスト使用量とみなす(実機で値の増加を確認済み、厳密な意味は未確認)。 */
-export function computeUsage(session: Json): Usage | undefined {
-  const reqs: Json[] = session?.requests ?? [];
-  for (let i = reqs.length - 1; i >= 0; i--) {
-    const r = reqs[i];
-    if (typeof r?.promptTokens !== "number") continue;
-    const size =
-      r.modelConfiguration?.contextSize ??
-      session?.inputState?.selectedModel?.metadata?.maxInputTokens ??
+export interface PromptTokenCategory {
+  label: string;
+  category: string;
+  percentage: number;
+}
+
+function toolNames(request: Json): string[] {
+  return [...new Set<string>((request?.response ?? [])
+    .filter((part: Json) => part?.kind === "toolInvocationSerialized" && typeof part?.toolId === "string")
+    .map((part: Json) => part.toolId as string))];
+}
+
+/** promptTokens is the latest full request; completionTokens is the response that follows it. */
+export function computeUsage(session: Json, baseOverheadTokens = 0): Usage | undefined {
+  const requests: Json[] = session?.requests ?? [];
+  for (let index = requests.length - 1; index >= 0; index--) {
+    const request = requests[index];
+    if (typeof request?.promptTokens !== "number") continue;
+    const selectedMetadata = session?.inputState?.selectedModel?.metadata;
+    const contextSize =
+      request.modelConfiguration?.contextSize ??
+      selectedMetadata?.maxInputTokens ??
       0;
-    if (!size) return undefined;
-    return { promptTokens: r.promptTokens, contextSize: size, ratio: r.promptTokens / size, modelId: r.modelId ?? "" };
+    if (!contextSize) return undefined;
+    const completionTokens = typeof request.completionTokens === "number" ? request.completionTokens : 0;
+    const occupiedTokens = request.promptTokens + completionTokens + Math.max(0, baseOverheadTokens);
+    const promptBreakdown: PromptTokenCategory[] = (request.promptTokenDetails ?? [])
+      .filter((part: Json) => typeof part?.label === "string" && typeof part?.percentageOfPrompt === "number")
+      .map((part: Json) => ({ label: part.label, category: part.category ?? "Other", percentage: part.percentageOfPrompt }));
+    return {
+      promptTokens: request.promptTokens,
+      completionTokens,
+      occupiedTokens,
+      contextSize,
+      ratio: occupiedTokens / contextSize,
+      modelId: request.modelId ?? selectedMetadata?.id ?? "",
+      mode: request.modeInfo?.kind ?? session?.inputState?.mode?.kind ?? session?.inputState?.mode?.id ?? "",
+      promptBreakdown,
+      toolNames: toolNames(request),
+    };
   }
   return undefined;
+}
+
+export function chatSelection(session: Json): { modelId: string; mode: string } {
+  const request: Json | undefined = [...(session?.requests ?? [])].reverse().find((item: Json) => item?.modelId);
+  return {
+    modelId: request?.modelId ?? session?.inputState?.selectedModel?.identifier ?? session?.inputState?.selectedModel?.metadata?.id ?? "",
+    mode: request?.modeInfo?.kind ?? session?.inputState?.mode?.kind ?? session?.inputState?.mode?.id ?? "agent",
+  };
 }
 
 export type StopReason = "streaming" | "complete" | "cancelled" | "unknown";

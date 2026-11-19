@@ -2,7 +2,7 @@
 
 Three extensions for people who use Copilot Chat heavily. One install gets them all.
 
-[日本語版 README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/pack/README.ja.md)
+[Japanese README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/pack/README.ja.md)
 
 | Extension | What it solves |
 | --- | --- |

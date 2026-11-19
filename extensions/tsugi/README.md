@@ -4,9 +4,13 @@
 
 The longer a chat gets, the more Copilot forgets your instructions and the slower it responds. Tsugi shows context usage in the status bar and carries your work over to a fresh chat. It does not call a model to summarize, so it uses no extra tokens.
 
-[日本語版 README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/tsugi/README.ja.md)
+[Japanese README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/tsugi/README.ja.md)
 
 ![Tsugi overview](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/images/overview.png)
+
+![Tsugi in VS Code](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/images/demo.png)
+
+[Watch the demo](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/images/demo.mp4)
 
 ## Does this sound familiar?
 
@@ -18,8 +22,9 @@ The longer a chat gets, the more Copilot forgets your instructions and the slowe
 
 | Feature | Details |
 | --- | --- |
-| Usage in the status bar | Shows context usage at all times. Turns to a warning color above 80% (configurable). |
-| One-click handoff | Click the status bar to put a handoff prompt into a new chat input. |
+| Live usage in the status bar | Recalculates from the latest turn's `promptTokens + completionTokens` whenever the session file changes. It shows prompt categories and tools in the tooltip. |
+| One-click handoff | Click the status bar to put a handoff prompt into a new chat input. The saved model and mode are inherited when available. |
+| One chat to many task chats | Run `Tsugi: Split into Separate Task Chats`, review the model's task list, and choose one or more tasks to place in separate chats. |
 | What the handoff contains | The first request, recent exchanges, and the Git state of every workspace folder. |
 | Nothing is sent for you | The text only lands in the input box. You review and edit it before sending. |
 | Optional file copy | The handoff can also be saved to the extension storage (`tsugi.saveHandoff`). |
@@ -30,7 +35,7 @@ The longer a chat gets, the more Copilot forgets your instructions and the slowe
 2. When it turns to the warning color, click it.
 3. Review the handoff prompt in the new chat and send it.
 
-You can also run `Tsugi: 新しいチャットへ引き継ぐ` (hand off to a new chat) from the Command Palette. Command titles are shown in Japanese in the current version.
+You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate Task Chats` from the Command Palette. Split asks for confirmation before sending the recent transcript to the selected language model, then leaves every new prompt unsent for review.
 
 ## Privacy
 
@@ -40,7 +45,9 @@ You can also run `Tsugi: 新しいチャットへ引き継ぐ` (hand off to a ne
 ## Good to know
 
 - It reads the chat save format (`chatSessions/*.jsonl`), which Copilot Chat does not publish. If the format changes, Tsugi stops showing values and warns you.
+- If token fields are unavailable, run `Developer: Set Log Level...`, choose GitHub Copilot Chat, and select `Debug` or `Trace`.
 - The usage shown is for the most recently updated chat in the workspace. It can differ from the chat on screen.
+- The base overhead correction defaults to 0 because current prompt totals already include system instructions and tool definitions in the verified format.
 - Verified on VS Code 1.147 and Copilot Chat 0.75.
 
 ## Settings
@@ -49,6 +56,7 @@ You can also run `Tsugi: 新しいチャットへ引き継ぐ` (hand off to a ne
 | --- | --- | --- |
 | `tsugi.warnPercent` | 80 | Usage (%) at which the status bar turns to the warning color |
 | `tsugi.saveHandoff` | true | Also save the handoff text to a file |
+| `tsugi.baseOverheadTokens` | 0 | Additional system and MCP overhead when the saved prompt total undercounts it |
 
 ## Related extensions
 

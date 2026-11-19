@@ -1,3 +1,5 @@
 src/**
 .vscode/**
 icon.svg
+scripts/build-icon.ts
+scripts/__pycache__/**

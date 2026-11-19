@@ -17,3 +17,4 @@ Japanese: [README.ja.md](README.ja.md)
 - Publish by running the `publish` GitHub Actions workflow manually (needs the `VSCE_PAT` secret). A published version cannot be republished, so bump the version in each `package.json`.
 - All three read an unpublished chat save format. If it changes, fix `src/core/session.ts` and republish everything.
 - `scripts/make-images.ts` regenerates the overview images (requires Chrome).
+- `scripts/make-demo-media.ts` regenerates the UI demo screenshots and videos (requires Chrome and Python OpenCV).
