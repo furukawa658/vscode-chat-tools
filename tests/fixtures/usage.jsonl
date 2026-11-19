@@ -1,0 +1,4 @@
+{"kind":0,"v":{"requests":[{"modelId":"copilot/example","promptTokens":99000,"completionTokens":0,"modelState":{"value":0}}],"inputState":{"selectedModel":{"metadata":{"maxInputTokens":200000}}}}}
+{"kind":1,"k":["requests",0,"completionTokens"],"v":2500}
+{"kind":1,"k":["requests",0,"promptTokens"],"v":100000}
+{"kind":1,"k":["requests",0,"modelState"],"v":{"value":1}}
