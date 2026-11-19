@@ -1,8 +1,10 @@
 <p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/eien/icon.png" width="128" alt="Eien"></p>
 
-# Eien: leave Copilot a task, not a babysitter
+# Eien: overnight Copilot with a credit circuit breaker
 
-An overnight run can stop halfway through with no one there to press Continue. Eien watches for a chat that is still processing but has gone quiet, sends a continuation prompt, and saves each intervention as a rollback-ready Git checkpoint. In the morning, you get one report of what happened instead of an unfinished chat and an unknown working tree.
+Leave Copilot a task, not an uncontrolled bill. Before monitoring starts, Eien asks for this run's strict AI credit budget. If saved `copilotCredits` usage reaches the budget, Eien cancels the active Chat request, closes its monitoring loop, and never sends another continuation prompt.
+
+Eien also resumes a chat that is still processing but has gone quiet, and saves each intervention as a rollback-ready Git checkpoint. In the morning, one report shows the credit usage, interventions, checkpoints, and reason for stopping.
 
 It resumes only stalled processing, not completed conversations, and it does not modify your work branch or normal Git index.
 
@@ -18,6 +20,7 @@ It resumes only stalled processing, not completed conversations, and it does not
 
 | Feature | Details |
 | --- | --- |
+| Strict credit circuit breaker | Set a nightly AI credit budget when monitoring starts. Eien watches Copilot's saved `copilotCredits` delta every 15 s, cancels the active Chat at the limit, and stops all Eien interventions. |
 | Resume stalled chats | When the chat has not updated for a set time (default 120 s) and the last request is still processing, it sends a continue instruction. Finished responses are left alone. |
 | No stopping on questions | The instruction asks Copilot to write questions to `eien-questions.md` and move on to other work. |
 | Rollback-ready records | The start state is saved as checkpoint #0, then each intervention is recorded under `refs/eien/checkpoint`. No work branch or normal index is changed. |
@@ -28,13 +31,16 @@ It resumes only stalled processing, not completed conversations, and it does not
 ## How to use
 
 1. After handing off your task, run `Eien: Start Overnight Monitoring` from the Command Palette.
-2. In the morning, run `Eien: Open Morning Report`.
-3. Run `Eien: Stop Overnight Monitoring` when you no longer need it.
+2. Enter the AI credit budget allowed for this overnight run. Eien requires a number greater than zero and remembers the last value as the input default.
+3. If usage reaches the budget, Eien cancels the active Chat and stops automatically. Otherwise, review the result with `Eien: Open Morning Report` in the morning.
+4. Run `Eien: Stop Overnight Monitoring` at any time when manual monitoring control is needed.
 
 ## Safety
 
 - It does not touch your work branch or your normal Git index. It uses a temporary index and a dedicated `refs/eien/checkpoint` history.
 - Checkpoints are skipped while `.git/index.lock` exists. The start baseline makes rollback to the pre-run state possible.
+- The circuit breaker reads the AI credit value stored in each local Copilot Chat session. It does not read your GitHub billing balance, and an in-flight request can consume credits before its saved value becomes available.
+- At the budget limit, Eien cancels the active request and stops its timer. This prevents Eien from sending approval clicks or continuation prompts after the trip.
 - Approval clicking is disabled by default. Enable `eien.autoClickApprovals` only when you accept the OS accessibility behavior.
 - The checkpoint uses `commit-tree` with GPG signing disabled, so hooks and signing prompts cannot freeze overnight work.
 - Checkpoints include untracked files. Do not keep credentials in the working tree.
@@ -52,6 +58,8 @@ It resumes only stalled processing, not completed conversations, and it does not
 | `eien.maxHours` | 8 | Maximum running time |
 | `eien.maxInterventions` | 20 | Maximum number of interventions |
 | `eien.autoClickApprovals` | `false` | Click known chat approval buttons through the OS accessibility API, then fall back to a continuation prompt |
+
+The strict circuit-breaker budget is entered interactively for each run so a previous night's allowance is not silently reused.
 
 ## Approval Click Prerequisites
 

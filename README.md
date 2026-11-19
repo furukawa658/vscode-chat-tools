@@ -9,7 +9,7 @@ Japanese: [README.ja.md](README.ja.md)
 | Extension | When it helps |
 | --- | --- |
 | [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | A long chat is getting fuzzy or slow: see context usage and continue in a fresh chat |
-| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | A Copilot task may stall while you are away: resume it and keep rollback-ready Git checkpoints |
+| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | Leave an overnight task with a strict AI credit circuit breaker: cancel at your nightly budget, resume stalls, and keep rollback-ready checkpoints |
 | [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | You keep repeating the same correction: review and save it as a reusable rule |
 | [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | Install the complete Copilot Chat workflow in one click |
 

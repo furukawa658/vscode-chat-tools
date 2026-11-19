@@ -1,6 +1,18 @@
 name: publish
 on:
   workflow_dispatch:
+    inputs:
+      extension:
+        description: Extension to publish
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - tsugi
+          - ne-memory
+          - eien
+          - pack
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -17,8 +29,14 @@ jobs:
       - name: Publish
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          TARGET_EXTENSION: ${{ inputs.extension }}
         run: |
-          for e in tsugi ne-memory eien pack; do
+          if [ "$TARGET_EXTENSION" = "all" ]; then
+            targets="tsugi ne-memory eien pack"
+          else
+            targets="$TARGET_EXTENSION"
+          fi
+          for e in $targets; do
             cp LICENSE extensions/$e/LICENSE
             (cd extensions/$e && ../../node_modules/.bin/vsce publish --no-dependencies --skip-license)
           done
