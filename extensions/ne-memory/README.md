@@ -1,8 +1,10 @@
 <p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/ne-memory/icon.png" width="128" alt="Ne"></p>
 
-# Ne: never give the same correction twice
+# Ne: make Copilot remember the correction you keep repeating
 
-"No, not like that." "I told you before." Do you keep giving Copilot the same corrections? Ne finds corrections repeated across different past chats, explains the likely cause, and drafts them as rules. A five-second review notification lets you inspect or ignore the draft before automatic registration.
+If every new chat starts the same avoidable back-and-forth, Ne finds correction patterns across past sessions and turns them into a concrete rule proposal. It explains the likely root cause, gives you a five-second review window, and supports editing, rollback, scope selection, and merging before the rule stays.
+
+Your repeated instruction becomes reusable project knowledge instead of another line you have to type again.
 
 [Japanese README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/ne-memory/README.ja.md)
 

@@ -1,15 +1,17 @@
 # vscode-chat-tools
 
-Monorepo of Tsugi, Eien and Ne: VS Code extensions for heavy Copilot Chat users. Shared code lives in `src/core`.
+Keep Copilot Chat moving: before context runs out, when a task stalls overnight, and after you have corrected the same thing too many times.
+
+Tsugi, Eien, and Ne are three focused VS Code extensions that share the reading and Git safety code in `src/core`. Install them separately or get the full set from [the Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack).
 
 Japanese: [README.ja.md](README.ja.md)
 
-| Extension | What it does |
+| Extension | When it helps |
 | --- | --- |
-| [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | Shows context usage and hands off to a new chat |
-| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | Resumes stalled chats overnight and records the working tree |
-| [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | Turns repeated corrections into approved rules |
-| [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | Installs the three above |
+| [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | A long chat is getting fuzzy or slow: see context usage and continue in a fresh chat |
+| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | A Copilot task may stall while you are away: resume it and keep rollback-ready Git checkpoints |
+| [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | You keep repeating the same correction: review and save it as a reusable rule |
+| [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | Install the complete Copilot Chat workflow in one click |
 
 ## Development
 

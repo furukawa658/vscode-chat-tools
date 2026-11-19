@@ -27,7 +27,7 @@
     "handoff",
     "token-usage"
   ],
-  "version": "0.2.2",
+  "version": "0.2.3",
   "activationEvents": [
     "onStartupFinished"
   ],
