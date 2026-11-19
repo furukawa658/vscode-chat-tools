@@ -22,7 +22,8 @@ The longer a chat gets, the more Copilot forgets your instructions and the slowe
 
 | Feature | Details |
 | --- | --- |
-| Live usage in the status bar | Recalculates from the latest turn's `promptTokens + completionTokens` whenever the session file changes. It shows prompt categories and tools in the tooltip. |
+| Fast live usage in the status bar | A resident Zig scanner reads the latest indexed token patches whenever the session file changes, without reconstructing the full chat object for every refresh. |
+| No Zig setup required | Small native scanners ship for Windows, Linux, and macOS. If a scanner cannot read a session, Tsugi falls back to the JavaScript replay implementation. |
 | One-click handoff | Click the status bar to put a handoff prompt into a new chat input. The saved model and mode are inherited when available. |
 | One chat to many task chats | Run `Tsugi: Split into Separate Task Chats`, review the model's task list, and choose one or more tasks to place in separate chats. |
 | What the handoff contains | The first request, recent exchanges, and the Git state of every workspace folder. |
@@ -44,7 +45,8 @@ You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate 
 
 ## Good to know
 
-- It reads the chat save format (`chatSessions/*.jsonl`), which Copilot Chat does not publish. If the format changes, Tsugi stops showing values and warns you.
+- It reads the chat save format (`chatSessions/*.jsonl`), which Copilot Chat does not publish. If the Zig scanner cannot read a session, Tsugi uses the JavaScript implementation and warns only when neither path can read it.
+- Model metadata and context size are parsed once in JavaScript. Later updates use the resident Zig process, so a large session object is not reconstructed for each status-bar refresh.
 - If token fields are unavailable, run `Developer: Set Log Level...`, choose GitHub Copilot Chat, and select `Debug` or `Trace`.
 - The usage shown is for the most recently updated chat in the workspace. It can differ from the chat on screen.
 - The base overhead correction defaults to 0 because current prompt totals already include system instructions and tool definitions in the verified format.

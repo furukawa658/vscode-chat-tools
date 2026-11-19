@@ -18,3 +18,4 @@ Japanese: [README.ja.md](README.ja.md)
 - All three read an unpublished chat save format. If it changes, fix `src/core/session.ts` and republish everything.
 - `scripts/make-images.ts` regenerates the overview images (requires Chrome).
 - `scripts/make-demo-media.ts` regenerates the UI demo screenshots and videos (requires Chrome and Python OpenCV).
+- `bun run build:zig` cross-compiles the resident Tsugi session scanner for Windows, Linux, and macOS. Local builds use the JavaScript fallback when Zig is unavailable; CI and Marketplace publishing require Zig 0.15.2.
