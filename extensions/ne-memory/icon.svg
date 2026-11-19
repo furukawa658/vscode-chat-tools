@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="nightBg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#060210" />
+      <stop offset="60%" stop-color="#110626" />
+      <stop offset="100%" stop-color="#1F0836" />
+    </linearGradient>
+    <linearGradient id="cyberWing" x1="24" y1="40" x2="232" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F5FF" />
+      <stop offset="50%" stop-color="#9D4EDD" />
+      <stop offset="100%" stop-color="#FF0055" />
+    </linearGradient>
+    <linearGradient id="armorFill" x1="60" y1="50" x2="196" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1A103C" />
+      <stop offset="100%" stop-color="#090418" />
+    </linearGradient>
+    <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="40%" stop-color="#FF0055" />
+      <stop offset="100%" stop-color="#FF0055" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="scanlines" width="256" height="5" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="256" height="1.8" fill="#000000" opacity="0.35" />
+    </pattern>
+    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="6" y="6" width="244" height="244" rx="44" fill="url(#nightBg)" stroke="#2E1559" stroke-width="3" />
+
+  <circle cx="128" cy="116" r="76" fill="#FF0055" opacity="0.14" />
+  <circle cx="128" cy="116" r="76" stroke="#FF0055" stroke-width="2" stroke-dasharray="12 6" opacity="0.55" />
+
+  <g stroke="#00F5FF" stroke-width="3" opacity="0.75">
+    <path d="M24 46 L24 24 L46 24" />
+    <path d="M210 24 L232 24 L232 46" />
+    <path d="M24 210 L24 232 L46 232" />
+    <path d="M210 232 L232 232 L232 210" />
+  </g>
+
+  <g transform="translate(-5, 2)" opacity="0.75" stroke="#FF0055" stroke-width="4" stroke-linejoin="miter">
+    <polygon points="112,118 22,52 44,104 28,122 64,142 52,162 104,158" />
+    <polygon points="144,118 234,52 212,104 228,122 192,142 204,162 152,158" />
+    <polygon points="128,44 106,84 114,124 128,142 142,124 150,84" />
+  </g>
+
+  <g filter="url(#glow)">
+    <polygon points="114,116 24,50 46,102 30,120 66,140 54,160 106,156" fill="url(#armorFill)" stroke="url(#cyberWing)" stroke-width="4.5" stroke-linejoin="miter" />
+    <polyline points="42,74 84,108 106,126" stroke="#00F5FF" stroke-width="2.5" />
+    <polyline points="46,118 82,134 102,142" stroke="#39FF14" stroke-width="2" />
+
+    <polygon points="142,116 232,50 210,102 226,120 190,140 202,160 150,156" fill="url(#armorFill)" stroke="url(#cyberWing)" stroke-width="4.5" stroke-linejoin="miter" />
+    <polyline points="214,74 172,108 150,126" stroke="#00F5FF" stroke-width="2.5" />
+    <polyline points="210,118 174,134 154,142" stroke="#39FF14" stroke-width="2" />
+
+    <polygon points="112,156 96,218 118,198 128,228 138,198 160,218 144,156" fill="url(#armorFill)" stroke="#00F5FF" stroke-width="4" stroke-linejoin="miter" />
+
+    <polygon points="106,112 128,96 150,112 144,164 128,176 112,164" fill="#0D0620" stroke="#00F5FF" stroke-width="4.5" />
+    <polygon points="128,116 138,132 128,154 118,132" fill="#00F5FF" opacity="0.85" />
+
+    <polygon points="128,38 104,78 112,114 128,132 144,114 152,78" fill="#090314" stroke="#00F5FF" stroke-width="4.5" stroke-linejoin="miter" />
+    <polyline points="128,38 120,22 132,30 138,18" stroke="#39FF14" stroke-width="3" stroke-linecap="square" />
+
+    <polygon points="122,96 134,96 128,136" fill="#FF0055" stroke="#FFFFFF" stroke-width="1.5" />
+
+    <polygon points="108,80 124,88 122,94 107,87" fill="#FF0055" />
+    <polygon points="148,80 132,88 134,94 149,87" fill="#FF0055" />
+    <circle cx="116" cy="86" r="10" fill="url(#eyeGlow)" />
+    <circle cx="140" cy="86" r="10" fill="url(#eyeGlow)" />
+    <circle cx="116" cy="86" r="2.5" fill="#FFFFFF" />
+    <circle cx="140" cy="86" r="2.5" fill="#FFFFFF" />
+  </g>
+
+  <rect x="20" y="92" width="44" height="3" fill="#00F5FF" opacity="0.8" />
+  <rect x="192" y="148" width="48" height="3" fill="#FF0055" opacity="0.85" />
+  <rect x="34" y="176" width="32" height="2.5" fill="#39FF14" opacity="0.8" />
+
+  <rect x="6" y="6" width="244" height="244" rx="44" fill="url(#scanlines)" />
+</svg>
