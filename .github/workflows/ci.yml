@@ -16,6 +16,11 @@ jobs:
       - run: bun x tsc --noEmit
       - run: bun run build
       - run: ./extensions/tsugi/bin/session-scan-linux-x64 tests/fixtures/usage.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: session-scan-binaries
+          path: extensions/tsugi/bin/session-scan-*
+          if-no-files-found: error
       - run: |
           for extension in tsugi ne-memory eien pack; do
             cp LICENSE extensions/$extension/LICENSE
