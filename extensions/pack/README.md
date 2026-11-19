@@ -1,13 +1,15 @@
 # Copilot Chat Tools Pack
 
-Copilot Chatを長く使う人向けの3点セットです。1回のインストールで全部入ります。
+Three extensions for people who use Copilot Chat heavily. One install gets them all.
 
-| 拡張機能 | 解決すること |
+[日本語版 README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/pack/README.ja.md)
+
+| Extension | What it solves |
 | --- | --- |
-| [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | チャットが長くなったら、使用率を見て1クリックで新しいチャットへ引き継ぐ |
-| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | 夜間に処理中のまま止まったチャットを再開させ、作業ツリーを記録する |
-| [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | 繰り返した修正指示を、承認したものだけルールとして登録する |
+| [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | Shows context usage and hands a long chat off to a new one in one click |
+| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | Resumes chats that stall overnight and records the working tree |
+| [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | Registers repeated corrections as rules, only the ones you approve |
 
-各拡張機能は個別にも入れられます。詳しい使い方と注意点は、それぞれのページを見てください。
+Each extension can also be installed on its own. See each page for usage and caveats.
 
-ソースと不具合報告は [GitHub](https://github.com/furukawa658/vscode-chat-tools) にあります。
+Source and bug reports: [GitHub](https://github.com/furukawa658/vscode-chat-tools). License: MIT.

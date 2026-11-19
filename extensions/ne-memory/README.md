@@ -1,46 +1,51 @@
 <p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/ne-memory/icon.png" width="128" alt="Ne"></p>
 
-# Ne: 同じ注意を、二度と言わない
+# Ne: never give the same correction twice
 
-「そうじゃなくて」「前も言ったけど」。Copilotに同じ修正指示を何度も出していませんか。
-Neはあなたの過去のチャットから繰り返した修正指示を見つけ、ルールの案にします。あなたが承認したものだけが、Copilotのユーザーメモリに登録されます。
+"No, not like that." "I told you before." Do you keep giving Copilot the same corrections? Ne finds the corrections you repeated in your past chats and drafts them as rules. Only the rules you approve are saved to Copilot's user memory.
 
-## できること
+[日本語版 README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/ne-memory/README.ja.md)
 
-| コマンド | 内容 |
+![Ne overview](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/ne-memory/images/overview.png)
+
+## Commands
+
+| Command | Details |
 | --- | --- |
-| `Ne: 修正指示の検出数を測る` | 直近20件のチャットから、修正指示の件数と割合を表示する。モデルは使わない |
-| `Ne: 修正指示を分析してルール登録` | 修正指示からルール案を作り、承認ダイアログで「登録する」を選んだときだけ書き込む |
-| `Ne: 登録したルールを取り消す` | 登録履歴から選んで取り消す |
+| `Ne: 修正指示の検出数を測る` (count corrections) | Shows the number and share of corrections in your last 20 chats. No model is used. |
+| `Ne: 修正指示を分析してルール登録` (analyze and register rules) | Drafts rules from your corrections and writes them only if you choose to register in the approval dialog. |
+| `Ne: 登録したルールを取り消す` (undo registered rules) | Pick from the registration history to undo. |
 
-## 使い方
+Command titles are shown in Japanese in the current version.
 
-1. まず `Ne: 修正指示の検出数を測る` で、どれくらい言い直しているかを見る。
-2. `Ne: 修正指示を分析してルール登録` でルール案を確認し、残したいものだけ承認する。
-3. 以後のチャットで、登録したルールがCopilotに渡る。
+## How to use
 
-## 送信と書き込み
+1. Run the count command first to see how often you restate things.
+2. Run the analyze command, review the drafted rules, and approve only those you want.
+3. In later chats, the registered rules are passed to Copilot.
 
-- 言語モデルへ送るのは、現在のワークスペースの修正指示の本文(1件400文字まで)だけである。送信前に確認が出る。
-- 自動登録はしない。ワークスペースの指示ファイルも書き換えない。
-- 書き込み先は `globalStorage/github.copilot-chat/memory-tool/memories/ne-rules.md` である。
+## What is sent and written
 
-## 知っておくこと
+- Only the text of corrections in the current workspace (up to 400 characters each) is sent to the VS Code language model, after a confirmation prompt.
+- Nothing is registered automatically. Workspace instruction files are not modified.
+- Rules are written to `globalStorage/github.copilot-chat/memory-tool/memories/ne-rules.md`.
 
-- Copilot Chatが公開していない保存形式と、メモリの保存場所(内部構成)に依存する。構成が変わると動かなくなる可能性がある。
-- 修正指示の判定語は少数に絞っている。見逃しや誤検出はありうる。検出率は `Ne: 修正指示の検出数を測る` で確認できる。
-- 動作確認: VS Code 1.147、Copilot Chat 0.75。
+## Good to know
 
-## 設定
+- It depends on the chat save format and the memory location, which are internal to Copilot Chat. A change on their side may break it.
+- Detection uses a small set of marker phrases, so it can miss corrections or flag false ones. The count command shows the detection rate.
+- Verified on VS Code 1.147 and Copilot Chat 0.75.
 
-| 設定 | 既定値 | 内容 |
+## Settings
+
+| Setting | Default | Description |
 | --- | --- | --- |
-| `ne.scope` | `currentWorkspace` | 分析対象。既定は現在のワークスペースのみ |
+| `ne.scope` | `currentWorkspace` | Scope of analysis. The default is the current workspace only |
 
-## 関連する拡張機能
+## Related extensions
 
-- [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi): 長くなったチャットを新しいチャットへ引き継ぐ
-- [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien): 夜間に止まったチャットを再開させる
-- 3つまとめて入れる: [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack)
+- [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi): hand off a long chat to a new one
+- [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien): resume chats that stall overnight
+- Install all three: [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack)
 
-不具合・要望は [GitHub](https://github.com/furukawa658/vscode-chat-tools/issues) へ。
+Bugs and requests: [GitHub Issues](https://github.com/furukawa658/vscode-chat-tools/issues). License: MIT.

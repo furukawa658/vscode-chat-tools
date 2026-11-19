@@ -1,49 +1,54 @@
 <p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/eien/icon.png" width="128" alt="Eien"></p>
 
-# Eien: 寝ている間も、Copilotを止めない
+# Eien: keep Copilot going while you sleep
 
-夜に長い作業を任せて寝たのに、朝見たら途中で止まっていた。Eienはその無駄を減らします。
-処理中のまま止まったチャットにだけ継続指示を送り、介入のたびに作業ツリーをGit参照へ記録します。朝には、何が起きたかの報告を開けます。
+You hand off a long task and go to bed, and in the morning the chat stopped halfway. Eien reduces that waste. It sends a continue instruction only to a chat that is stuck while processing, records the working tree to a Git ref at each intervention, and gives you a report in the morning.
 
-## できること
+[日本語版 README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/eien/README.ja.md)
 
-| 機能 | 内容 |
+![Eien overview](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/eien/images/overview.png)
+
+## Features
+
+| Feature | Details |
 | --- | --- |
-| 止まったチャットの再開 | 更新が一定時間(既定120秒)止まり、最後のリクエストが処理中のままのときだけ継続指示を送る。完了済みの応答には送らない |
-| 質問で止まらない | 継続指示は、質問で止まらず `eien-questions.md` へ書いて他の作業を進めるよう求める |
-| 巻き戻せる記録 | 介入のたびに、`refs/eien/checkpoint` へ作業ツリーを記録する。作業ブランチは増えず、フックも通らない |
-| 上限で自動停止 | 経過時間(既定8時間)と介入回数(既定20回)の上限で止まる |
-| 朝の報告 | 開始・介入・チェックポイント・停止の記録を1つのレポートで開ける |
+| Resume stalled chats | When the chat has not updated for a set time (default 120 s) and the last request is still processing, it sends a continue instruction. Finished responses are left alone. |
+| No stopping on questions | The instruction asks Copilot to write questions to `eien-questions.md` and move on to other work. |
+| Rollback-ready records | At each intervention, the working tree is recorded to `refs/eien/checkpoint`. No extra branches, no hooks. |
+| Automatic stop | Stops at a time limit (default 8 h) or an intervention limit (default 20). |
+| Morning report | Opens one report of the start, interventions, checkpoints, and stop. |
 
-## 使い方
+## How to use
 
-1. 作業を任せたら、コマンドパレットで `Eien: 開始` を実行する。
-2. 朝に `Eien: 朝の報告を開く` で記録を確認する。
-3. 不要になったら `Eien: 停止` を実行する。
+1. After handing off your task, run `Eien: 開始` (Start) from the Command Palette.
+2. In the morning, run `Eien: 朝の報告を開く` (Open morning report).
+3. Run `Eien: 停止` (Stop) when you no longer need it.
 
-## 安全のために
+Command titles are shown in Japanese in the current version.
 
-- 作業ブランチと通常のインデックスには触れない。一時インデックスを使う。
-- 承認ボタンの自動押下はしない。編集の自動確定もしない。
-- チェックポイントには未追跡ファイルも入る。認証情報を作業ツリーに置かないこと。
+## Safety
 
-## 知っておくこと
+- It does not touch your work branch or your normal Git index. It uses a temporary index.
+- It does not click approval buttons or confirm edits automatically.
+- Checkpoints include untracked files. Do not keep credentials in the working tree.
 
-- Copilot Chatが公開していない保存形式を読む。読めない場合は開始せず、実行中なら停止する。
-- 動作確認: VS Code 1.147、Copilot Chat 0.75。
+## Good to know
 
-## 設定
+- It reads the chat save format, which Copilot Chat does not publish. If it cannot read it, Eien does not start, and stops if running.
+- Verified on VS Code 1.147 and Copilot Chat 0.75.
 
-| 設定 | 既定値 | 内容 |
+## Settings
+
+| Setting | Default | Description |
 | --- | --- | --- |
-| `eien.idleSeconds` | 120 | 更新が止まったとみなす秒数 |
-| `eien.maxHours` | 8 | 最大稼働時間 |
-| `eien.maxInterventions` | 20 | 最大介入回数 |
+| `eien.idleSeconds` | 120 | Seconds without updates before a chat counts as stalled |
+| `eien.maxHours` | 8 | Maximum running time |
+| `eien.maxInterventions` | 20 | Maximum number of interventions |
 
-## 関連する拡張機能
+## Related extensions
 
-- [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi): 長くなったチャットを新しいチャットへ引き継ぐ
-- [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory): 繰り返した修正指示をルール化する
-- 3つまとめて入れる: [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack)
+- [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi): hand off a long chat to a new one
+- [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory): turn repeated corrections into rules
+- Install all three: [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack)
 
-不具合・要望は [GitHub](https://github.com/furukawa658/vscode-chat-tools/issues) へ。
+Bugs and requests: [GitHub Issues](https://github.com/furukawa658/vscode-chat-tools/issues). License: MIT.

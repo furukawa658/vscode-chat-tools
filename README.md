@@ -1,16 +1,19 @@
 # vscode-chat-tools
 
-Copilot Chatを長く使う人向けの拡張機能 Tsugi・Eien・Ne のモノレポ。共通部品は `src/core`。
+Monorepo of Tsugi, Eien and Ne: VS Code extensions for heavy Copilot Chat users. Shared code lives in `src/core`.
 
-| 拡張機能 | 内容 |
+Japanese: [README.ja.md](README.ja.md)
+
+| Extension | What it does |
 | --- | --- |
-| [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | 使用率の表示と、新しいチャットへの引き継ぎ |
-| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | 夜間に止まったチャットの再開と作業ツリーの記録 |
-| [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | 繰り返した修正指示のルール化 |
-| [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | 上の3つをまとめて導入 |
+| [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | Shows context usage and hands off to a new chat |
+| [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | Resumes stalled chats overnight and records the working tree |
+| [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | Turns repeated corrections into approved rules |
+| [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | Installs the three above |
 
-## 開発
+## Development
 
-- `bun run build` でバンドル、`bun test C:/.../tests` でテスト
-- 公開は GitHub Actions の `publish` を手動実行する(`VSCE_PAT` が必要)。公開済みの版は再公開できないため、`package.json` の版を上げる
-- 3つとも非公開のチャット保存形式を読む。形式が変わったら `src/core/session.ts` を直して全て再公開する
+- Build with `bun run build`; test with `bun test <absolute path to tests>`.
+- Publish by running the `publish` GitHub Actions workflow manually (needs the `VSCE_PAT` secret). A published version cannot be republished, so bump the version in each `package.json`.
+- All three read an unpublished chat save format. If it changes, fix `src/core/session.ts` and republish everything.
+- `scripts/make-images.ts` regenerates the overview images (requires Chrome).
