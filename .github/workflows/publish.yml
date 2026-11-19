@@ -1,0 +1,21 @@
+name: publish
+on:
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test
+      - run: bun run build
+      # pack は依存先の公開後でないと失敗するため最後に公開する
+      - name: Publish
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          for e in tsugi ne-memory eien pack; do
+            cp LICENSE extensions/$e/LICENSE
+            (cd extensions/$e && ../../node_modules/.bin/vsce publish --no-dependencies --skip-license)
+          done
