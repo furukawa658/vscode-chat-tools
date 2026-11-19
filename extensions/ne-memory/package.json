@@ -1,7 +1,7 @@
 {
   "name": "ne-memory",
-  "displayName": "Ne",
-  "description": "繰り返した修正指示を分析し、承認後にルールとして登録する。",
+  "displayName": "Ne - Copilot Rule Memory",
+  "description": "Find repeated Copilot corrections and turn them into reusable rules, with a five-second review window.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -13,9 +13,21 @@
     "vscode": "^1.96.0"
   },
   "categories": [
+    "AI",
+    "Machine Learning",
     "Other"
   ],
-  "version": "0.1.6",
+  "keywords": [
+    "copilot",
+    "copilot-chat",
+    "ai",
+    "memory",
+    "rules",
+    "instructions",
+    "productivity",
+    "corrections"
+  ],
+  "version": "0.2.0",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -29,7 +41,39 @@
           ],
           "default": "currentWorkspace",
           "type": "string",
-          "description": "分析対象。既定は現在のワークスペースのみ"
+          "markdownDescription": "Legacy scan scope setting. Use `ne.scanAllWorkspaces` for new configurations."
+        },
+        "ne.scanAllWorkspaces": {
+          "type": "boolean",
+          "default": false,
+          "description": "Scan every VS Code workspace under the local workspaceStorage directory. Disabled by default."
+        },
+        "ne.minimumSessions": {
+          "type": "number",
+          "default": 2,
+          "minimum": 2,
+          "description": "Minimum number of different chat sessions required before a correction is treated as repeated."
+        },
+        "ne.maxSessions": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "description": "Maximum number of recent chat session files to inspect."
+        },
+        "ne.defaultScope": {
+          "type": "string",
+          "enum": [
+            "Global",
+            "Workspace"
+          ],
+          "default": "Global",
+          "description": "Initial rule registration target. Review mode can switch the scope."
+        },
+        "ne.autoRegisterSeconds": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "Seconds before a proposed rule is registered automatically."
         }
       },
       "title": "Ne"
@@ -37,15 +81,15 @@
     "commands": [
       {
         "command": "ne.measure",
-        "title": "Ne: 修正指示の検出数を測る"
+        "title": "Ne: Measure Repeated Corrections"
       },
       {
         "command": "ne.analyze",
-        "title": "Ne: 修正指示を分析してルール登録"
+        "title": "Ne: Analyze Corrections and Save a Rule"
       },
       {
         "command": "ne.undo",
-        "title": "Ne: 登録したルールを取り消す"
+        "title": "Ne: Undo a Saved Rule"
       }
     ]
   },

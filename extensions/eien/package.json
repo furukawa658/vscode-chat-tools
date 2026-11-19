@@ -1,7 +1,7 @@
 {
   "name": "eien",
-  "displayName": "Eien",
-  "description": "夜間に処理中のまま止まったチャットへ継続指示を送り、Git参照へチェックポイントを残す。",
+  "displayName": "Eien - Keep Copilot Chat Running",
+  "description": "Resume stalled Copilot Chat work overnight, save Git checkpoints, and generate a morning report.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -13,9 +13,21 @@
     "vscode": "^1.96.0"
   },
   "categories": [
+    "AI",
+    "Machine Learning",
     "Other"
   ],
-  "version": "0.1.6",
+  "keywords": [
+    "copilot",
+    "copilot-chat",
+    "ai",
+    "automation",
+    "productivity",
+    "night",
+    "checkpoint",
+    "git"
+  ],
+  "version": "0.2.0",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -23,19 +35,24 @@
     "configuration": {
       "properties": {
         "eien.maxHours": {
-          "description": "最大稼働時間",
+          "description": "Maximum number of hours Eien may run.",
           "default": 8,
           "type": "number"
         },
         "eien.idleSeconds": {
-          "description": "更新が止まったとみなす秒数",
+          "description": "Seconds without a chat-file update before a stall is considered.",
           "default": 120,
           "type": "number"
         },
         "eien.maxInterventions": {
-          "description": "最大介入回数",
+          "description": "Maximum number of resume prompts Eien may send.",
           "default": 20,
           "type": "number"
+        },
+        "eien.autoClickApprovals": {
+          "description": "Use the operating system accessibility API to click a known chat approval button. Falls back to a continuation prompt when unavailable.",
+          "default": false,
+          "type": "boolean"
         }
       },
       "title": "Eien"
@@ -43,15 +60,15 @@
     "commands": [
       {
         "command": "eien.start",
-        "title": "Eien: 開始"
+        "title": "Eien: Start Overnight Monitoring"
       },
       {
         "command": "eien.stop",
-        "title": "Eien: 停止"
+        "title": "Eien: Stop Overnight Monitoring"
       },
       {
         "command": "eien.report",
-        "title": "Eien: 朝の報告を開く"
+        "title": "Eien: Open Morning Report"
       }
     ]
   },

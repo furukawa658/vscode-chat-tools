@@ -1,7 +1,7 @@
 {
   "name": "tsugi",
-  "displayName": "Tsugi",
-  "description": "Copilot Chatのコンテキスト消費を表示し、新しいチャットへ引き継ぐ。",
+  "displayName": "Tsugi - Copilot Chat Context Handoff",
+  "description": "Show Copilot Chat context usage and hand off long conversations to a fresh chat in one click.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -13,9 +13,21 @@
     "vscode": "^1.96.0"
   },
   "categories": [
+    "AI",
+    "Machine Learning",
     "Other"
   ],
-  "version": "0.1.6",
+  "keywords": [
+    "copilot",
+    "copilot-chat",
+    "ai",
+    "context",
+    "productivity",
+    "chat",
+    "handoff",
+    "token-usage"
+  ],
+  "version": "0.2.0",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -23,13 +35,19 @@
     "configuration": {
       "properties": {
         "tsugi.saveHandoff": {
-          "description": "引き継ぎ文をファイルへ保存する",
+          "description": "Save a copy of the handoff prompt to extension storage.",
           "default": true,
           "type": "boolean"
         },
         "tsugi.warnPercent": {
-          "description": "警告色にする使用率(%)",
+          "description": "Usage percentage at which the status bar changes to a warning color.",
           "default": 80,
+          "type": "number"
+        },
+        "tsugi.baseOverheadTokens": {
+          "description": "Additional system and MCP overhead to add when Copilot's saved token details do not include it. Keep at 0 when the saved prompt total already includes tool definitions.",
+          "default": 0,
+          "minimum": 0,
           "type": "number"
         }
       },
@@ -38,7 +56,11 @@
     "commands": [
       {
         "command": "tsugi.handoff",
-        "title": "Tsugi: 新しいチャットへ引き継ぐ"
+        "title": "Tsugi: Hand Off to a New Chat"
+      },
+      {
+        "command": "tsugi.split",
+        "title": "Tsugi: Split into Separate Task Chats"
       }
     ]
   },

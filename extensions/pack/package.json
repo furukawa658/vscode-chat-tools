@@ -1,15 +1,25 @@
 {
   "name": "vscode-chat-tools-pack",
-  "displayName": "Tsugi Eien Ne Pack",
-  "description": "Tsugi・Eien・Neをまとめて入れる拡張機能パック。",
-  "version": "0.1.6",
+  "displayName": "Tsugi Eien Ne Pack for Copilot Chat",
+  "description": "Install Tsugi, Eien, and Ne together to manage Copilot Chat context, resumes, and reusable rules.",
+  "version": "0.2.0",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "engines": {
     "vscode": "^1.96.0"
   },
   "categories": [
-    "Extension Packs"
+    "Extension Packs",
+    "AI"
+  ],
+  "keywords": [
+    "copilot",
+    "copilot-chat",
+    "ai",
+    "productivity",
+    "context",
+    "automation",
+    "memory"
   ],
   "repository": {
     "type": "git",

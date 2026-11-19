@@ -1,88 +1,327 @@
 import * as vscode from "vscode";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { listSessionFiles, loadSession } from "../core/session";
 import { diagnose } from "../core/diagnose";
 import { askModel, chatSessionsDir } from "../core/workspace";
-import { detectCorrections } from "./detect";
+import { clusterCorrections, Correction, FrictionCluster, detectCorrections } from "./detect";
 
-// ユーザーメモリの実体(実機で確認): globalStorage/github.copilot-chat/memory-tool/memories
-const memoryFile = (ctx: vscode.ExtensionContext) =>
-  join(dirname(ctx.globalStorageUri.fsPath), "github.copilot-chat", "memory-tool", "memories", "ne-rules.md");
+type RuleScope = "Global" | "Workspace";
 
 interface Entry {
   id: string;
   rule: string;
   at: number;
+  scope: RuleScope;
+  filePath: string;
+}
+
+interface RuleWrite {
+  filePath: string;
+  rule: string;
+  replacedRule?: string;
+}
+
+interface Proposal {
+  id: string;
+  rule: string;
+  phenomenon: string;
+  cause: string;
+  evidence: string;
+  scope: RuleScope;
+  mergeTargetRule?: string;
+  registered?: RuleWrite;
+  documentUri?: vscode.Uri;
+  timer?: NodeJS.Timeout;
+}
+
+const RULE_START = "<!-- ne-rule-start -->";
+const RULE_END = "<!-- ne-rule-end -->";
+
+function ruleLines(text: string): string[] {
+  return text.split(/\r?\n/).filter((line) => line.startsWith("- ")).map((line) => line.slice(2).trim()).filter(Boolean);
 }
 
 export function activate(ctx: vscode.ExtensionContext) {
-  const histPath = join(ctx.globalStorageUri.fsPath, "history.json");
-  const loadHist = (): Entry[] => (existsSync(histPath) ? JSON.parse(readFileSync(histPath, "utf8")) : []);
-  const saveHist = (h: Entry[]) => {
-    mkdirSync(ctx.globalStorageUri.fsPath, { recursive: true });
-    writeFileSync(histPath, JSON.stringify(h, null, 2), "utf8");
+  const historyPath = join(ctx.globalStorageUri.fsPath, "history.json");
+  const proposals = new Map<string, Proposal>();
+  const codeLensChanged = new vscode.EventEmitter<void>();
+  const configuration = () => vscode.workspace.getConfiguration("ne");
+  const currentSessionDir = chatSessionsDir(ctx);
+  const globalRulesFile = () => join(dirname(ctx.globalStorageUri.fsPath), "github.copilot-chat", "memory-tool", "memories", "user-preferences.instructions.md");
+  const workspaceRulesFile = () => {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    return folder ? join(folder.uri.fsPath, ".github", "copilot-instructions.md") : "";
   };
-  const render = (h: Entry[]) => "# Neが登録したルール\n\n" + h.map((e) => `- ${e.rule}`).join("\n") + "\n";
-  const write = (h: Entry[]) => {
-    const p = memoryFile(ctx);
-    mkdirSync(dirname(p), { recursive: true });
-    writeFileSync(p, render(h), "utf8");
+  const targetFile = (scope: RuleScope) => scope === "Global" ? globalRulesFile() : workspaceRulesFile();
+
+  const loadHistory = (): Entry[] => {
+    if (!existsSync(historyPath)) return [];
+    return (JSON.parse(readFileSync(historyPath, "utf8")) as Array<Partial<Entry>>).map((entry) => ({
+      id: entry.id ?? String(entry.at ?? Date.now()),
+      rule: entry.rule ?? "",
+      at: entry.at ?? Date.now(),
+      scope: entry.scope ?? "Global",
+      filePath: entry.filePath ?? join(dirname(globalRulesFile()), "ne-rules.md"),
+    }));
+  };
+  const saveHistory = (history: Entry[]) => {
+    mkdirSync(ctx.globalStorageUri.fsPath, { recursive: true });
+    writeFileSync(historyPath, JSON.stringify(history, null, 2), "utf8");
   };
 
-  const dir = chatSessionsDir(ctx);
-  const collect = () => {
-    if (!dir) return [];
-    const scope = vscode.workspace.getConfiguration("ne").get<string>("scope", "currentWorkspace");
-    if (scope !== "currentWorkspace") vscode.window.showInformationMessage("横断分析は未実装のため現在のワークスペースだけを対象にする。");
-    return listSessionFiles(dir).slice(0, 20).flatMap((f) => {
-      try {
-        return detectCorrections(loadSession(f.path));
-      } catch {
-        return [];
-      }
-    });
+  const removeRule = (write: RuleWrite) => {
+    if (!existsSync(write.filePath)) return;
+    const current = readFileSync(write.filePath, "utf8");
+    let next: string;
+    if (write.replacedRule) {
+      next = current.replace(`- ${write.rule}`, `- ${write.replacedRule}`);
+    } else {
+      const currentRule = `- ${write.rule}`;
+      next = current.replace(new RegExp(`^${currentRule.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\r?\\n?`, "m"), "");
+    }
+    if (next !== current) writeFileSync(write.filePath, next, "utf8");
   };
+
+  const writeRule = (proposal: Proposal, rule: string): RuleWrite => {
+    const filePath = targetFile(proposal.scope);
+    if (!filePath) throw new Error("No workspace folder is available for a Workspace rule.");
+    mkdirSync(dirname(filePath), { recursive: true });
+    const current = existsSync(filePath) ? readFileSync(filePath, "utf8") : "";
+    let next = current;
+    let replacedRule: string | undefined;
+    if (proposal.mergeTargetRule) {
+      const before = `- ${proposal.mergeTargetRule}`;
+      if (!current.includes(before)) throw new Error("The selected merge target no longer exists.");
+      next = current.replace(before, `- ${rule}`);
+      replacedRule = proposal.mergeTargetRule;
+    } else if (ruleLines(current).includes(rule)) {
+      throw new Error("The same rule is already present in the selected scope.");
+    } else {
+      next = `${current.replace(/\s*$/, "")}\n\n## Rules registered by Ne\n\n- ${rule}\n`;
+    }
+    if (next !== current) writeFileSync(filePath, next, "utf8");
+    return { filePath, rule, replacedRule };
+  };
+
+  const remember = (proposal: Proposal, rule: string, write: RuleWrite) => {
+    const history = loadHistory();
+    const existing = history.find((entry) => entry.id === proposal.id);
+    if (existing) {
+      existing.rule = rule;
+      existing.scope = proposal.scope;
+      existing.filePath = write.filePath;
+    } else {
+      history.push({ id: proposal.id, rule, at: Date.now(), scope: proposal.scope, filePath: write.filePath });
+    }
+    saveHistory(history);
+  };
+
+  const register = (proposal: Proposal, rule = proposal.rule) => {
+    if (proposal.registered) removeRule(proposal.registered);
+    const write = writeRule(proposal, rule);
+    proposal.rule = rule;
+    proposal.registered = write;
+    remember(proposal, rule, write);
+    codeLensChanged.fire();
+    return write;
+  };
+
+  const rollback = (proposal: Proposal) => {
+    if (!proposal.registered) return;
+    removeRule(proposal.registered);
+    proposal.registered = undefined;
+    saveHistory(loadHistory().filter((entry) => entry.id !== proposal.id));
+    codeLensChanged.fire();
+  };
+
+  const sessionFiles = () => {
+    if (!currentSessionDir) return [];
+    const allWorkspaces = configuration().get<boolean>("scanAllWorkspaces", false)
+      || configuration().get<string>("scope", "currentWorkspace") === "allWorkspaces";
+    if (!allWorkspaces) return listSessionFiles(currentSessionDir);
+    const storageRoot = dirname(dirname(currentSessionDir));
+    const files = readdirSync(storageRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => listSessionFiles(join(storageRoot, entry.name, "chatSessions")));
+    const unique = new Map(files.map((file) => [file.path, file]));
+    unique.set(...(listSessionFiles(currentSessionDir).slice(0, 1).map((file) => [file.path, file] as const)[0] ?? ["", { path: "", mtimeMs: 0 }]));
+    return [...unique.values()].filter((file) => file.path).sort((a, b) => b.mtimeMs - a.mtimeMs);
+  };
+
+  const collect = () => {
+    const files = sessionFiles().slice(0, configuration().get<number>("maxSessions", 100));
+    const corrections: Correction[] = [];
+    let messageCount = 0;
+    for (const file of files) {
+      try {
+        const session = loadSession(file.path);
+        messageCount += Math.max(0, (session.requests?.length ?? 0) - 1);
+        corrections.push(...detectCorrections(session, session.sessionId ?? basename(file.path, ".jsonl")));
+      } catch {}
+    }
+    return { files, messageCount, corrections };
+  };
+
+  const evidenceFor = (cluster: FrictionCluster) => cluster.corrections.map((correction, index) => {
+    const response = correction.previousResponse;
+    return `### Evidence ${index + 1}\n- Session: ${correction.sessionId}\n- Correction: ${correction.text.replace(/\n/g, " ")}\n- AI output: ${response.outputCharacters} characters, ${response.codeBlockLines} code lines\n- Tools: ${response.toolNames.join(", ") || "none"}\n- Direct file references: ${response.directlyEditedFiles.join(", ") || "none"}`;
+  }).join("\n\n");
+
+  const reviewText = (proposal: Proposal) => `# Ne rule review\n\n- Scope: ${proposal.scope}\n- State: ${proposal.registered ? "registered; edits are reviewed before replacement" : "pending"}\n- Merge target: ${proposal.mergeTargetRule ?? "append a new rule"}\n\n## Proposed rule\n\n${RULE_START}\n${proposal.rule}\n${RULE_END}\n\n## Phenomenon\n\n${proposal.phenomenon}\n\n## Root cause\n\n${proposal.cause}\n\n## Evidence\n\n${proposal.evidence}\n`;
+
+  const extractRule = (document: vscode.TextDocument) => {
+    const text = document.getText();
+    const start = text.indexOf(RULE_START);
+    const end = text.indexOf(RULE_END);
+    return start >= 0 && end > start ? text.slice(start + RULE_START.length, end).trim() : "";
+  };
+
+  const closeReview = async (uri?: vscode.Uri) => {
+    if (!uri || vscode.window.activeTextEditor?.document.uri.toString() !== uri.toString()) return;
+    await vscode.commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+  };
+
+  const openReview = async (proposal: Proposal) => {
+    const document = await vscode.workspace.openTextDocument({ language: "markdown", content: reviewText(proposal) });
+    proposal.documentUri = document.uri;
+    proposals.set(document.uri.toString(), proposal);
+    await vscode.window.showTextDocument(document, { preview: false });
+    codeLensChanged.fire();
+  };
+
+  const autoRegister = (proposal: Proposal) => {
+    if (proposal.documentUri || proposal.registered) return;
+    try {
+      register(proposal);
+      vscode.window.setStatusBarMessage(`Ne: rule registered in ${proposal.scope}`, 5000);
+    } catch (error) {
+      vscode.window.showErrorMessage(`Ne: automatic registration failed: ${(error as Error).message}`);
+    }
+  };
+
+  const propose = async (proposal: Proposal) => {
+    const delaySeconds = configuration().get<number>("autoRegisterSeconds", 5);
+    proposal.timer = setTimeout(() => autoRegister(proposal), delaySeconds * 1000);
+    const action = await vscode.window.showInformationMessage(
+      `Ne: ${proposal.rule} (${delaySeconds} seconds before automatic registration)`,
+      "Review, edit, and register",
+      "Ignore",
+    );
+    if (action === "Review, edit, and register") {
+      if (proposal.timer) clearTimeout(proposal.timer);
+      await openReview(proposal);
+    } else if (action === "Ignore") {
+      if (proposal.timer) clearTimeout(proposal.timer);
+      rollback(proposal);
+    }
+  };
+
+  class ProposalCodeLensProvider implements vscode.CodeLensProvider {
+    readonly onDidChangeCodeLenses = codeLensChanged.event;
+    provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+      const proposal = proposals.get(document.uri.toString());
+      if (!proposal) return [];
+      const marker = document.getText().split(/\r?\n/).findIndex((line) => line === RULE_END);
+      const line = Math.max(0, marker);
+      const range = new vscode.Range(line, 0, line, 0);
+      return [
+        new vscode.CodeLens(range, { title: "Confirm rule", command: "ne.review.confirm", arguments: [document.uri] }),
+        new vscode.CodeLens(range, { title: "Ignore / rollback", command: "ne.review.ignore", arguments: [document.uri] }),
+        new vscode.CodeLens(range, { title: `Switch to ${proposal.scope === "Global" ? "Workspace" : "Global"}`, command: "ne.review.switchScope", arguments: [document.uri] }),
+        new vscode.CodeLens(range, { title: "Select merge target", command: "ne.review.mergeTarget", arguments: [document.uri] }),
+      ];
+    }
+  }
 
   ctx.subscriptions.push(
+    vscode.languages.registerCodeLensProvider({ language: "markdown", scheme: "untitled" }, new ProposalCodeLensProvider()),
+    codeLensChanged,
+    vscode.commands.registerCommand("ne.review.confirm", async (uri: vscode.Uri) => {
+      const proposal = proposals.get(uri.toString());
+      if (!proposal) return;
+      const document = await vscode.workspace.openTextDocument(uri);
+      const rule = extractRule(document);
+      if (!rule) return vscode.window.showWarningMessage("Ne: the rule is empty.");
+      register(proposal, rule);
+      await closeReview(uri);
+      vscode.window.setStatusBarMessage(`Ne: rule registered in ${proposal.scope}`, 5000);
+    }),
+    vscode.commands.registerCommand("ne.review.ignore", async (uri: vscode.Uri) => {
+      const proposal = proposals.get(uri.toString());
+      if (!proposal) return;
+      rollback(proposal);
+      await closeReview(uri);
+    }),
+    vscode.commands.registerCommand("ne.review.switchScope", async (uri: vscode.Uri) => {
+      const proposal = proposals.get(uri.toString());
+      if (!proposal) return;
+      proposal.scope = proposal.scope === "Global" ? "Workspace" : "Global";
+      proposal.mergeTargetRule = undefined;
+      const document = await vscode.workspace.openTextDocument(uri);
+      proposal.rule = extractRule(document) || proposal.rule;
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(uri, new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)), reviewText(proposal));
+      await vscode.workspace.applyEdit(edit);
+      codeLensChanged.fire();
+    }),
+    vscode.commands.registerCommand("ne.review.mergeTarget", async (uri: vscode.Uri) => {
+      const proposal = proposals.get(uri.toString());
+      if (!proposal) return;
+      const target = targetFile(proposal.scope);
+      const rules = target && existsSync(target) ? ruleLines(readFileSync(target, "utf8")) : [];
+      if (rules.length === 0) return vscode.window.showInformationMessage("Ne: no existing rule is available in this scope.");
+      const selected = await vscode.window.showQuickPick(rules, { placeHolder: "Select the rule to replace" });
+      if (!selected) return;
+      proposal.mergeTargetRule = selected;
+      codeLensChanged.fire();
+    }),
     vscode.commands.registerCommand("ne.measure", () => {
-      if (!dir || !diagnose(dir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めない。");
-      const files = listSessionFiles(dir).slice(0, 20);
-      let total = 0;
-      let hit = 0;
-      for (const f of files) {
-        try {
-          const s = loadSession(f.path);
-          total += Math.max(0, (s.requests?.length ?? 0) - 1);
-          hit += detectCorrections(s).length;
-        } catch {}
-      }
-      vscode.window.showInformationMessage(`直近${files.length}件: 発話${total}件中、修正指示と判定${hit}件(${total ? Math.round((hit / total) * 100) : 0}%)。内容を目視して誤検知率を確認する。`);
+      if (!currentSessionDir || !diagnose(currentSessionDir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めない。");
+      const collected = collect();
+      const clusters = clusterCorrections(collected.corrections);
+      const repeated = clusters.filter((cluster) => cluster.uniqueSessions >= configuration().get<number>("minimumSessions", 2));
+      vscode.window.showInformationMessage(`Scanned ${collected.files.length} chats and ${collected.messageCount} messages. Detected ${collected.corrections.length} corrections; ${repeated.length} repeated clusters across different sessions.`);
     }),
     vscode.commands.registerCommand("ne.analyze", async () => {
-      if (!dir || !diagnose(dir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めない。");
-      const cs = collect();
-      if (cs.length === 0) return vscode.window.showInformationMessage("修正指示は見つからなかった。");
-      const ok = await vscode.window.showWarningMessage(`修正指示${cs.length}件の本文を言語モデルへ送信して分析する。`, { modal: true }, "送信する");
+      if (!currentSessionDir || !diagnose(currentSessionDir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めない。");
+      const collected = collect();
+      const minimumSessions = configuration().get<number>("minimumSessions", 2);
+      const clusters = clusterCorrections(collected.corrections).filter((cluster) => cluster.uniqueSessions >= minimumSessions).sort((a, b) => b.uniqueSessions - a.uniqueSessions);
+      if (clusters.length === 0) return vscode.window.showInformationMessage(`No correction repeated across ${minimumSessions} different chat sessions was found.`);
+      const cluster = clusters[0];
+      const ok = await vscode.window.showWarningMessage(
+        `Send ${cluster.corrections.length} correction examples from ${cluster.uniqueSessions} sessions to the selected language model?`,
+        { modal: true },
+        "Send",
+      );
       if (!ok) return;
-      const prompt = `次は利用者がAIへ繰り返した修正指示である。共通する原因を1つ選び、今後守るべきルールを1行の日本語で出力する。ルール文だけを出力する。\n\n${cs.map((c) => "- " + c.text.replace(/\n/g, " ")).join("\n")}`;
-      const rule = (await askModel(prompt, new vscode.CancellationTokenSource().token)).trim().split("\n")[0];
-      const pick = await vscode.window.showInformationMessage(`登録するルール案:\n${rule}`, { modal: true }, "登録する");
-      if (pick !== "登録する") return;
-      const h = loadHist();
-      h.push({ id: String(Date.now()), rule, at: Date.now() });
-      saveHist(h);
-      write(h);
-      vscode.window.showInformationMessage("ユーザーメモリ(ne-rules.md)へ登録した。");
+      const prompt = `Analyze repeated corrections and return only JSON with string fields rule, phenomenon, and cause. The rule must be one actionable sentence. Include output size, code lines, tools, edited files, and cross-session repetition in the causal reasoning.\n\n${evidenceFor(cluster)}`;
+      const response = (await askModel(prompt, new vscode.CancellationTokenSource().token)).trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
+      let parsed: { rule: string; phenomenon: string; cause: string };
+      try {
+        parsed = JSON.parse(response);
+      } catch {
+        parsed = { rule: response.split(/\r?\n/)[0], phenomenon: "Repeated correction across chat sessions", cause: "The model could not return structured JSON." };
+      }
+      await propose({
+        id: String(Date.now()),
+        rule: parsed.rule,
+        phenomenon: parsed.phenomenon,
+        cause: parsed.cause,
+        evidence: evidenceFor(cluster),
+        scope: configuration().get<string>("defaultScope", "Global") === "Workspace" ? "Workspace" : "Global",
+      });
     }),
     vscode.commands.registerCommand("ne.undo", async () => {
-      const h = loadHist();
-      if (h.length === 0) return vscode.window.showInformationMessage("登録履歴がない。");
-      const sel = await vscode.window.showQuickPick(h.map((e) => ({ label: e.rule, id: e.id })), { placeHolder: "取り消すルール" });
-      if (!sel) return;
-      const next = h.filter((e) => e.id !== sel.id);
-      saveHist(next);
-      write(next);
+      const history = loadHistory();
+      if (history.length === 0) return vscode.window.showInformationMessage("Ne: no registration history exists.");
+      const selected = await vscode.window.showQuickPick(history.slice().reverse().map((entry) => ({ label: entry.rule, description: `${entry.scope} · ${entry.filePath}`, id: entry.id })), { placeHolder: "Select a rule to undo" });
+      if (!selected) return;
+      const entry = history.find((item) => item.id === selected.id);
+      if (entry && existsSync(entry.filePath)) removeRule({ filePath: entry.filePath, rule: entry.rule });
+      saveHistory(history.filter((item) => item.id !== selected.id));
+      vscode.window.setStatusBarMessage("Ne: rule removed", 5000);
     }),
   );
 }
