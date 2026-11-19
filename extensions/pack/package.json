@@ -2,7 +2,7 @@
   "name": "vscode-chat-tools-pack",
   "displayName": "Tsugi Eien Ne Pack",
   "description": "Tsugi・Eien・Neをまとめて入れる拡張機能パック。",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "engines": {
@@ -19,5 +19,6 @@
     "ShunsukeF.tsugi",
     "ShunsukeF.eien",
     "ShunsukeF.ne-memory"
-  ]
+  ],
+  "icon": "icon.png"
 }

@@ -15,7 +15,7 @@
   "categories": [
     "Other"
   ],
-  "version": "0.1.0",
+  "version": "0.1.1",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -54,5 +54,6 @@
         "title": "Eien: 朝の報告を開く"
       }
     ]
-  }
+  },
+  "icon": "icon.png"
 }
