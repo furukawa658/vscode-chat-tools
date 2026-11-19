@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { listSessionFiles, loadSession, userText, responseText } from "../core/session";
 import { computeUsage } from "../core/usage";
 import { diagnose } from "../core/diagnose";
+import { computeUsageWithZig } from "../core/zig";
 import { diffSummary } from "../core/git";
 import { buildHandoff } from "../core/handoff";
 import { askModel, chatSessionsDir, workspaceFolders, resolveChatLaunchSelection, sendToNewChat } from "../core/workspace";
@@ -16,15 +17,20 @@ export function activate(ctx: vscode.ExtensionContext) {
 
   const refresh = () => {
     if (!dir) return bar.hide();
-    const d = diagnose(dir);
-    if (!d.ok) {
-      bar.text = "$(warning) Tsugi停止";
-      bar.tooltip = `${d.message}\nVS Code ${vscode.version}。保存形式が変わった可能性がある。`;
-      return bar.show();
-    }
+    const file = listSessionFiles(dir)[0];
+    if (!file) return bar.hide();
     try {
       const baseOverheadTokens = vscode.workspace.getConfiguration("tsugi").get<number>("baseOverheadTokens", 0);
-      const u = computeUsage(loadSession(listSessionFiles(dir)[0].path), baseOverheadTokens);
+      const accelerated = computeUsageWithZig(file.path, ctx.extensionUri.fsPath, baseOverheadTokens);
+      if (!accelerated) {
+        const diagnosis = diagnose(dir);
+        if (!diagnosis.ok) {
+          bar.text = "$(warning) Tsugi停止";
+          bar.tooltip = `${diagnosis.message}\nVS Code ${vscode.version}。保存形式が変わった可能性がある。`;
+          return bar.show();
+        }
+      }
+      const u = accelerated ?? computeUsage(loadSession(file.path), baseOverheadTokens);
       if (!u) return bar.hide();
       const pct = Math.round(u.ratio * 100);
       const categories = u.promptBreakdown.map((part) => `${part.label} ${part.percentage}%`).join(" · ");
