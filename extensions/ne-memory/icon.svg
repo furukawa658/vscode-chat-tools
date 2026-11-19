@@ -1,84 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
   <defs>
-    <linearGradient id="nightBg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#060210" />
-      <stop offset="60%" stop-color="#110626" />
-      <stop offset="100%" stop-color="#1F0836" />
-    </linearGradient>
-    <linearGradient id="cyberWing" x1="24" y1="40" x2="232" y2="200" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#00F5FF" />
-      <stop offset="50%" stop-color="#9D4EDD" />
-      <stop offset="100%" stop-color="#FF0055" />
-    </linearGradient>
-    <linearGradient id="armorFill" x1="60" y1="50" x2="196" y2="210" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1A103C" />
-      <stop offset="100%" stop-color="#090418" />
-    </linearGradient>
-    <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="40%" stop-color="#FF0055" />
-      <stop offset="100%" stop-color="#FF0055" stop-opacity="0" />
-    </radialGradient>
-    <pattern id="scanlines" width="256" height="5" patternUnits="userSpaceOnUse">
-      <rect x="0" y="0" width="256" height="1.8" fill="#000000" opacity="0.35" />
-    </pattern>
-    <filter id="glow" x="-25%" y="-25%" width="150%" height="150%">
-      <feGaussianBlur stdDeviation="4" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
+    <clipPath id="frame"><rect x="6" y="6" width="244" height="244" rx="48" /></clipPath>
+    <linearGradient id="sky" x1="128" y1="6" x2="128" y2="250" gradientUnits="userSpaceOnUse"><stop stop-color="#11162F" /><stop offset="0.38" stop-color="#4B315B" /><stop offset="0.66" stop-color="#C55D73" /><stop offset="0.84" stop-color="#F2A36D" /><stop offset="1" stop-color="#2B1B39" /></linearGradient>
+    <linearGradient id="valley" x1="128" y1="126" x2="128" y2="250" gradientUnits="userSpaceOnUse"><stop stop-color="#3A2948" /><stop offset="0.55" stop-color="#1B2137" /><stop offset="1" stop-color="#090B17" /></linearGradient>
+    <linearGradient id="node" x1="64" y1="76" x2="192" y2="172" gradientUnits="userSpaceOnUse"><stop stop-color="#33E6D2" /><stop offset="0.52" stop-color="#E9FFF7" /><stop offset="1" stop-color="#FFB45C" /></linearGradient>
+    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="4" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
   </defs>
-
-  <rect x="6" y="6" width="244" height="244" rx="44" fill="url(#nightBg)" stroke="#2E1559" stroke-width="3" />
-
-  <circle cx="128" cy="116" r="76" fill="#FF0055" opacity="0.14" />
-  <circle cx="128" cy="116" r="76" stroke="#FF0055" stroke-width="2" stroke-dasharray="12 6" opacity="0.55" />
-
-  <g stroke="#00F5FF" stroke-width="3" opacity="0.75">
-    <path d="M24 46 L24 24 L46 24" />
-    <path d="M210 24 L232 24 L232 46" />
-    <path d="M24 210 L24 232 L46 232" />
-    <path d="M210 232 L232 232 L232 210" />
+  <g clip-path="url(#frame)">
+    <rect x="6" y="6" width="244" height="244" fill="url(#sky)" />
+    <circle cx="194" cy="108" r="29" fill="#FFD69A" opacity="0.13" /><circle cx="194" cy="108" r="13" fill="#FFE7B0" opacity="0.95" />
+    <g fill="#FFF1DC" opacity="0.68"><circle cx="54" cy="48" r="2" /><circle cx="88" cy="72" r="1.4" /><circle cx="144" cy="38" r="1.2" /><circle cx="220" cy="92" r="1.5" /><circle cx="36" cy="103" r="1.2" /></g>
+    <path d="M6 178 L54 104 L90 154 L130 92 L174 158 L210 112 L250 170 V250 H6 Z" fill="#34243F" />
+    <path d="M42 178 L90 116 L126 178 M102 178 L154 120 L204 178 M174 178 L212 136 L250 184" fill="#50314B" opacity="0.78" />
+    <path d="M54 104 L69 128 L58 124 L48 139 L35 136 Z M130 92 L145 119 L133 113 L119 132 L111 123 Z M210 112 L220 131 L210 126 L199 140 L193 135 Z" fill="#F7C3A0" opacity="0.75" />
+    <rect x="6" y="184" width="244" height="66" fill="url(#valley)" />
+    <path d="M6 206 Q58 190 106 206 T250 202 V250 H6 Z" fill="#13172A" opacity="0.88" />
+    <g filter="url(#glow)" stroke="url(#node)" stroke-width="5" stroke-linecap="round"><path d="M128 91 L82 117 L96 164 L128 184 L176 157 L182 106 L128 91 Z" /><path d="M82 117 L176 157 M182 106 L96 164 M128 91 L128 184" opacity="0.65" /></g>
+    <g fill="url(#node)" stroke="#F4FFF9" stroke-width="3"><circle cx="128" cy="91" r="10" /><circle cx="82" cy="117" r="10" /><circle cx="96" cy="164" r="10" /><circle cx="128" cy="184" r="10" /><circle cx="176" cy="157" r="10" /><circle cx="182" cy="106" r="10" /></g>
+    <circle cx="128" cy="134" r="18" fill="#071B2B" stroke="url(#node)" stroke-width="8" /><circle cx="128" cy="134" r="5" fill="#F7FFF9" />
   </g>
-
-  <g transform="translate(-5, 2)" opacity="0.75" stroke="#FF0055" stroke-width="4" stroke-linejoin="miter">
-    <polygon points="112,118 22,52 44,104 28,122 64,142 52,162 104,158" />
-    <polygon points="144,118 234,52 212,104 228,122 192,142 204,162 152,158" />
-    <polygon points="128,44 106,84 114,124 128,142 142,124 150,84" />
-  </g>
-
-  <g filter="url(#glow)">
-    <polygon points="114,116 24,50 46,102 30,120 66,140 54,160 106,156" fill="url(#armorFill)" stroke="url(#cyberWing)" stroke-width="4.5" stroke-linejoin="miter" />
-    <polyline points="42,74 84,108 106,126" stroke="#00F5FF" stroke-width="2.5" />
-    <polyline points="46,118 82,134 102,142" stroke="#39FF14" stroke-width="2" />
-
-    <polygon points="142,116 232,50 210,102 226,120 190,140 202,160 150,156" fill="url(#armorFill)" stroke="url(#cyberWing)" stroke-width="4.5" stroke-linejoin="miter" />
-    <polyline points="214,74 172,108 150,126" stroke="#00F5FF" stroke-width="2.5" />
-    <polyline points="210,118 174,134 154,142" stroke="#39FF14" stroke-width="2" />
-
-    <polygon points="112,156 96,218 118,198 128,228 138,198 160,218 144,156" fill="url(#armorFill)" stroke="#00F5FF" stroke-width="4" stroke-linejoin="miter" />
-
-    <polygon points="106,112 128,96 150,112 144,164 128,176 112,164" fill="#0D0620" stroke="#00F5FF" stroke-width="4.5" />
-    <polygon points="128,116 138,132 128,154 118,132" fill="#00F5FF" opacity="0.85" />
-
-    <polygon points="128,38 104,78 112,114 128,132 144,114 152,78" fill="#090314" stroke="#00F5FF" stroke-width="4.5" stroke-linejoin="miter" />
-    <polyline points="128,38 120,22 132,30 138,18" stroke="#39FF14" stroke-width="3" stroke-linecap="square" />
-
-    <polygon points="122,96 134,96 128,136" fill="#FF0055" stroke="#FFFFFF" stroke-width="1.5" />
-
-    <polygon points="108,80 124,88 122,94 107,87" fill="#FF0055" />
-    <polygon points="148,80 132,88 134,94 149,87" fill="#FF0055" />
-    <circle cx="116" cy="86" r="10" fill="url(#eyeGlow)" />
-    <circle cx="140" cy="86" r="10" fill="url(#eyeGlow)" />
-    <circle cx="116" cy="86" r="2.5" fill="#FFFFFF" />
-    <circle cx="140" cy="86" r="2.5" fill="#FFFFFF" />
-  </g>
-
-  <rect x="20" y="92" width="44" height="3" fill="#00F5FF" opacity="0.8" />
-  <rect x="192" y="148" width="48" height="3" fill="#FF0055" opacity="0.85" />
-  <rect x="34" y="176" width="32" height="2.5" fill="#39FF14" opacity="0.8" />
-
-  <rect x="6" y="6" width="244" height="244" rx="44" fill="url(#scanlines)" />
+  <rect x="6" y="6" width="244" height="244" rx="48" stroke="#A85D7A" stroke-width="3" /><rect x="13" y="13" width="230" height="230" rx="41" stroke="#E4FFF2" stroke-opacity="0.18" />
 </svg>
