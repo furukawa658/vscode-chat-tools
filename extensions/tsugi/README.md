@@ -1,8 +1,10 @@
 <p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/icon.png" width="128" alt="Tsugi"></p>
 
-# Tsugi: hand off a long Copilot chat in one click
+# Tsugi: keep the task, lose the bloated chat
 
-The longer a chat gets, the more Copilot forgets your instructions and the slower it responds. Tsugi shows context usage in the status bar and carries your work over to a fresh chat. It does not call a model to summarize, so it uses no extra tokens.
+A long Copilot conversation starts missing instructions and taking longer to answer. Tsugi shows the moment that context is filling up, then opens a fresh chat with the goal, recent decisions, Git state, and relevant task context already in the input. No model call is used for a handoff, so changing chats does not spend extra tokens.
+
+Use it when you would rather continue working than rewrite the story from memory.
 
 [Japanese README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/tsugi/README.ja.md)
 

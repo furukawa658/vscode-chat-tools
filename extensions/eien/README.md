@@ -1,8 +1,10 @@
 <p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/eien/icon.png" width="128" alt="Eien"></p>
 
-# Eien: keep Copilot going while you sleep
+# Eien: leave Copilot a task, not a babysitter
 
-You hand off a long task and go to bed, and in the morning the chat stopped halfway. Eien reduces that waste. It sends a continue instruction only to a chat that is stuck while processing, records the working tree to a Git ref at each intervention, and gives you a report in the morning.
+An overnight run can stop halfway through with no one there to press Continue. Eien watches for a chat that is still processing but has gone quiet, sends a continuation prompt, and saves each intervention as a rollback-ready Git checkpoint. In the morning, you get one report of what happened instead of an unfinished chat and an unknown working tree.
+
+It resumes only stalled processing, not completed conversations, and it does not modify your work branch or normal Git index.
 
 [Japanese README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/eien/README.ja.md)
 
