@@ -64,6 +64,12 @@ pub fn main() !void {
     const bytes = try std.fs.cwd().readFileAlloc(allocator, args[1], 256 * 1024 * 1024);
     defer allocator.free(bytes);
     const result = scan(bytes);
-    const stdout = std.io.getStdOut().writer();
-    try stdout.print("{d}\t{d}\t{d}\t{d}\n", .{ result.prompt_tokens, result.completion_tokens, result.context_size, result.state });
+    const output = try std.fmt.allocPrint(allocator, "{d}\t{d}\t{d}\t{d}\n", .{
+        result.prompt_tokens,
+        result.completion_tokens,
+        result.context_size,
+        result.state,
+    });
+    defer allocator.free(output);
+    try std.fs.File.stdout().writeAll(output);
 }
