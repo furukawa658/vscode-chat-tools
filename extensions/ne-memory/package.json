@@ -1,0 +1,52 @@
+{
+  "name": "ne-memory",
+  "displayName": "Ne",
+  "description": "繰り返した修正指示を分析し、承認後にルールとして登録する。",
+  "publisher": "ShunsukeF",
+  "license": "MIT",
+  "main": "./dist/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/furukawa658/vscode-chat-tools"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "version": "0.1.0",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "ne.scope": {
+          "enum": [
+            "currentWorkspace",
+            "allWorkspaces"
+          ],
+          "default": "currentWorkspace",
+          "type": "string",
+          "description": "分析対象。既定は現在のワークスペースのみ"
+        }
+      },
+      "title": "Ne"
+    },
+    "commands": [
+      {
+        "command": "ne.measure",
+        "title": "Ne: 修正指示の検出数を測る"
+      },
+      {
+        "command": "ne.analyze",
+        "title": "Ne: 修正指示を分析してルール登録"
+      },
+      {
+        "command": "ne.undo",
+        "title": "Ne: 登録したルールを取り消す"
+      }
+    ]
+  }
+}

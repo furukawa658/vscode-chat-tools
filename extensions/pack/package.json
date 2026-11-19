@@ -1,0 +1,23 @@
+{
+  "name": "vscode-chat-tools-pack",
+  "displayName": "Tsugi Eien Ne Pack",
+  "description": "Tsugi・Eien・Neをまとめて入れる拡張機能パック。",
+  "version": "0.1.0",
+  "publisher": "ShunsukeF",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Extension Packs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/furukawa658/vscode-chat-tools"
+  },
+  "extensionPack": [
+    "ShunsukeF.tsugi",
+    "ShunsukeF.eien",
+    "ShunsukeF.ne-memory"
+  ]
+}

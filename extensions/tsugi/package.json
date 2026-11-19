@@ -1,0 +1,45 @@
+{
+  "name": "tsugi",
+  "displayName": "Tsugi",
+  "description": "Copilot Chatのコンテキスト消費を表示し、新しいチャットへ引き継ぐ。",
+  "publisher": "ShunsukeF",
+  "license": "MIT",
+  "main": "./dist/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/furukawa658/vscode-chat-tools"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "version": "0.1.0",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "tsugi.saveHandoff": {
+          "description": "引き継ぎ文をファイルへ保存する",
+          "default": true,
+          "type": "boolean"
+        },
+        "tsugi.warnPercent": {
+          "description": "警告色にする使用率(%)",
+          "default": 80,
+          "type": "number"
+        }
+      },
+      "title": "Tsugi"
+    },
+    "commands": [
+      {
+        "command": "tsugi.handoff",
+        "title": "Tsugi: 新しいチャットへ引き継ぐ"
+      }
+    ]
+  }
+}

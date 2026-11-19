@@ -1,0 +1,58 @@
+{
+  "name": "eien",
+  "displayName": "Eien",
+  "description": "夜間に処理中のまま止まったチャットへ継続指示を送り、Git参照へチェックポイントを残す。",
+  "publisher": "ShunsukeF",
+  "license": "MIT",
+  "main": "./dist/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/furukawa658/vscode-chat-tools"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "version": "0.1.0",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "eien.maxHours": {
+          "description": "最大稼働時間",
+          "default": 8,
+          "type": "number"
+        },
+        "eien.idleSeconds": {
+          "description": "更新が止まったとみなす秒数",
+          "default": 120,
+          "type": "number"
+        },
+        "eien.maxInterventions": {
+          "description": "最大介入回数",
+          "default": 20,
+          "type": "number"
+        }
+      },
+      "title": "Eien"
+    },
+    "commands": [
+      {
+        "command": "eien.start",
+        "title": "Eien: 開始"
+      },
+      {
+        "command": "eien.stop",
+        "title": "Eien: 停止"
+      },
+      {
+        "command": "eien.report",
+        "title": "Eien: 朝の報告を開く"
+      }
+    ]
+  }
+}

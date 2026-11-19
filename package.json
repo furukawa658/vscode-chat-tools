@@ -1,0 +1,6 @@
+{
+  "name": "vscode-chat-tools",
+  "private": true,
+  "scripts": { "build": "bun run build.ts", "test": "bun test tests", "typecheck": "tsc --noEmit" },
+  "devDependencies": { "@types/node": "^22.0.0", "@types/vscode": "1.96.0", "@vscode/vsce": "^3.0.0", "esbuild": "^0.25.0", "typescript": "^5.9.0" }
+}
