@@ -1,7 +1,7 @@
 {
   "name": "eien",
-  "displayName": "Eien - Copilot Chat Circuit Breaker",
-  "description": "Resume stalled Copilot Chat overnight, cap AI credit usage with a strict circuit breaker, and save Git checkpoints.",
+  "displayName": "Eien - Copilot Chat Auto-Continue & Credit Limit",
+  "description": "Auto-continue and auto-approve Copilot Chat overnight (AFK), cap Copilot credits and premium requests with a strict budget limit, and save Git rollback checkpoints.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -14,25 +14,25 @@
   },
   "categories": [
     "AI",
-    "Machine Learning",
+    "Chat",
     "Other"
   ],
   "keywords": [
-    "copilot",
     "copilot-chat",
-    "ai",
-    "automation",
-    "productivity",
-    "night",
-    "checkpoint",
-    "git",
-    "circuit-breaker",
-    "budget",
+    "copilot-agent",
+    "copilot-credits",
+    "premium-requests",
+    "auto-approve",
+    "auto-continue",
+    "overnight",
+    "afk",
+    "unattended",
+    "autonomous",
     "credit-limit",
     "cost-control",
-    "runaway-protection"
+    "rollback"
   ],
-  "version": "0.3.0",
+  "version": "0.3.1",
   "activationEvents": [
     "onStartupFinished"
   ],
