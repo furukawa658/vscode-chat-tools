@@ -1,7 +1,7 @@
 {
   "name": "ne-memory",
-  "displayName": "Ne - Copilot Rule Memory",
-  "description": "Find repeated Copilot corrections and turn them into reusable rules, with a five-second review window.",
+  "displayName": "Ne - Copilot Custom Instructions & Rule Memory",
+  "description": "Turn repeated Copilot Chat corrections into reusable .github/copilot-instructions.md and global memory rules, with root cause analysis and one-click rollback.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -14,20 +14,23 @@
   },
   "categories": [
     "AI",
-    "Machine Learning",
+    "Chat",
     "Other"
   ],
   "keywords": [
-    "copilot",
     "copilot-chat",
-    "ai",
+    "copilot-agent",
+    "copilot-instructions",
+    "custom-instructions",
+    "instructions",
+    "ai-memory",
     "memory",
     "rules",
-    "instructions",
-    "productivity",
-    "corrections"
+    "conventions",
+    "system-prompt",
+    "self-improving"
   ],
-  "version": "0.2.3",
+  "version": "0.2.4",
   "activationEvents": [
     "onStartupFinished"
   ],

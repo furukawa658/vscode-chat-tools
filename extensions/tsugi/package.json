@@ -1,7 +1,7 @@
 {
   "name": "tsugi",
-  "displayName": "Tsugi - Copilot Chat Context Handoff",
-  "description": "Show Copilot Chat context usage and hand off long conversations to a fresh chat in one click.",
+  "displayName": "Tsugi - Copilot Chat Context Window & Handoff",
+  "description": "Live Copilot Chat context window and token counter in the status bar. Hand off long conversations or split tasks into fresh chats in one click, with zero extra tokens.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -14,20 +14,23 @@
   },
   "categories": [
     "AI",
-    "Machine Learning",
+    "Chat",
     "Other"
   ],
   "keywords": [
-    "copilot",
     "copilot-chat",
-    "ai",
-    "context",
-    "productivity",
-    "chat",
+    "copilot-agent",
+    "context-window",
+    "token-counter",
+    "token-limit",
+    "token-usage",
     "handoff",
-    "token-usage"
+    "split-chat",
+    "session-management",
+    "chat-history",
+    "summarize"
   ],
-  "version": "0.2.3",
+  "version": "0.2.4",
   "activationEvents": [
     "onStartupFinished"
   ],
