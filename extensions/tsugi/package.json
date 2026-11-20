@@ -1,7 +1,7 @@
 {
   "name": "tsugi",
   "displayName": "Tsugi - Copilot Chat Context Window & Handoff",
-  "description": "Live Copilot Chat context window and token counter in the status bar. Hand off long conversations or split tasks into fresh chats in one click, with zero extra tokens.",
+  "description": "Live Copilot Chat context window and token counter with a bilingual sidebar for credit budgets, handoff detail, and automatic fresh-chat handoffs.",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "main": "./dist/extension.js",
@@ -30,13 +30,37 @@
     "chat-history",
     "summarize"
   ],
-  "version": "0.2.4",
+  "version": "0.3.0",
   "activationEvents": [
     "onStartupFinished"
   ],
   "contributes": {
     "configuration": {
       "properties": {
+        "tsugi.language": {
+          "description": "Language used by the Tsugi sidebar.",
+          "default": "en",
+          "enum": ["en", "ja"],
+          "enumDescriptions": ["English", "日本語"]
+        },
+        "tsugi.nextChatCredits": {
+          "description": "Suggested AI credit budget for the next chat. Included in the handoff prompt; it does not enforce a hard VS Code billing limit.",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 1000,
+          "type": "number"
+        },
+        "tsugi.handoffMode": {
+          "description": "Amount of context included in the next-chat handoff.",
+          "default": "summary-decisions",
+          "enum": ["summary-only", "summary-decisions", "full"],
+          "enumDescriptions": ["Goal and recent decisions", "Goal, decisions, and unresolved items", "Include the full handoff context"]
+        },
+        "tsugi.autoOpenNewChat": {
+          "description": "Automatically open a new chat when handing off the current chat.",
+          "default": true,
+          "type": "boolean"
+        },
         "tsugi.saveHandoff": {
           "description": "Save a copy of the handoff prompt to extension storage.",
           "default": true,
@@ -55,6 +79,25 @@
         }
       },
       "title": "Tsugi"
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tsugi",
+          "title": "Tsugi",
+          "icon": "icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "tsugi": [
+        {
+          "type": "webview",
+          "id": "tsugi.sidebar",
+          "name": "Handoff",
+          "icon": "icon.svg"
+        }
+      ]
     },
     "commands": [
       {
