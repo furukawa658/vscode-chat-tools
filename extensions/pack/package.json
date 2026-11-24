@@ -2,7 +2,7 @@
   "name": "vscode-chat-tools-pack",
   "displayName": "Copilot Chat Power Pack: Tsugi, Eien & Ne",
   "description": "All-in-one Copilot Chat toolkit: live context and token counter (Tsugi), auto-generated custom instructions (Ne), and overnight auto-continue with strict credit limits (Eien).",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": "ShunsukeF",
   "license": "MIT",
   "engines": {

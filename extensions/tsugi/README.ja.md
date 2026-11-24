@@ -1,5 +1,3 @@
-<p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/icon.png" width="128" alt="Tsugi"></p>
-
 # Tsugi: 長いチャットを捨てずに、次へ進む
 
 ## 新機能: サイドバーで次のチャットを設定

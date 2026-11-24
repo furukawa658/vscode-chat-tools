@@ -18,6 +18,14 @@ Long Copilot sessions usually fail in three predictable ways: **context bloat**,
 - **Local-first and transparent:** No external servers or telemetry. All session scanning runs locally in VS Code.
 - **Reversible by design:** Git checkpoints (`refs/eien/checkpoint`), rule rollbacks, and draft-only handoff prompts keep you in full control.
 
+## Related tools
+
+| When you need... | Extension | Role |
+| --- | --- | --- |
+| Long-term recall across chats | [Kioku](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.kioku-search) | Saves and searches lessons from earlier tasks. |
+| Structured test and build diagnostics | [Zuma MCP](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.inazuma-pwsh) | Returns concise failures from supported development tools. |
+| A reusable workflow from a completed task | [Waza](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.waza) | Compiles a selected workflow into an Agent Skill. |
+
 [Japanese README](https://github.com/furukawa658/vscode-chat-tools/blob/main/extensions/pack/README.ja.md)
 
 Source and bug reports: [GitHub](https://github.com/furukawa658/vscode-chat-tools). License: MIT.

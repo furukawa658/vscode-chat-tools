@@ -1,5 +1,3 @@
-<p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/eien/icon.png" width="128" alt="Eien"></p>
-
 # Eien: overnight Copilot with a credit circuit breaker
 
 Leave Copilot a task, not an uncontrolled bill. Before monitoring starts, Eien asks for this run's strict AI credit budget. If saved `copilotCredits` usage reaches the budget, Eien cancels the active Chat request, closes its monitoring loop, and never sends another continuation prompt.
@@ -70,10 +68,13 @@ The strict circuit-breaker budget is entered interactively for each run so a pre
 | macOS | Allow `Visual Studio Code` under System Settings > Privacy & Security > Accessibility. |
 | Linux | Install `python3-pyatspi` and `gir1.2-atspi-2.0`. If Wayland blocks accessibility access, start VS Code with `code --ozone-platform=x11`. |
 
-## Related extensions
+## Related tools
 
-- [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi): hand off a long chat to a new one
-- [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory): turn repeated corrections into rules
-- Install the complete Copilot Chat workflow (Context + Rules + Credit Guard): [Copilot Chat Power Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack)
+| When you need... | Extension | Role |
+| --- | --- | --- |
+| Structured failures instead of raw build logs | [Zuma MCP](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.inazuma-pwsh) | Returns concise build, test, lint, and type-check diagnostics. |
+| A fresh chat before context gets overloaded | [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | Creates a reviewed handoff prompt for the next chat. |
+| Reusable rules from repeated corrections | [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | Turns recurring instructions into Copilot rules. |
+| The complete Copilot Chat workflow | [Copilot Chat Power Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | Installs Tsugi, Eien, and Ne together. |
 
 Bugs and requests: [GitHub Issues](https://github.com/furukawa658/vscode-chat-tools/issues). License: MIT.

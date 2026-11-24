@@ -1,5 +1,3 @@
-<p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/ne-memory/icon.png" width="128" alt="Ne"></p>
-
 # Ne: make Copilot remember the correction you keep repeating
 
 If every new chat starts the same avoidable back-and-forth, Ne finds correction patterns across past sessions and turns them into a concrete rule proposal. It explains the likely root cause, gives you a five-second review window, and supports editing, rollback, scope selection, and merging before the rule stays.
@@ -56,10 +54,13 @@ Your repeated instruction becomes reusable project knowledge instead of another 
 | `ne.defaultScope` | `Global` | Initial target: `Global` or `Workspace` |
 | `ne.autoRegisterSeconds` | 5 | Delay before automatic registration |
 
-## Related extensions
+## Related tools
 
-- [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi): hand off a long chat to a new one
-- [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien): resume chats that stall overnight
-- Install the complete Copilot Chat workflow (Context + Rules + Credit Guard): [Copilot Chat Power Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack)
+| When you need... | Extension | Role |
+| --- | --- | --- |
+| Searchable lessons from past tasks | [Kioku](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.kioku-search) | Stores reusable outcomes, causes, and lessons across chats. |
+| A fresh chat before context gets overloaded | [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | Creates a reviewed handoff prompt for the next chat. |
+| Overnight continuation with a credit limit | [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | Resumes stalled work and stops at the configured budget. |
+| The complete Copilot Chat workflow | [Copilot Chat Power Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack) | Installs Tsugi, Eien, and Ne together. |
 
 Bugs and requests: [GitHub Issues](https://github.com/furukawa658/vscode-chat-tools/issues). License: MIT.

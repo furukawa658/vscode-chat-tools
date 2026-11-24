@@ -1,5 +1,3 @@
-<p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/eien/icon.png" width="128" alt="Eien"></p>
-
 # Eien: AIクレジットを守る夜間Copilotサーキットブレーカー
 
 Copilotに作業を任せる一方で、AIクレジットの使いすぎを防ぐ。監視開始時に、その夜に使える厳格なAIクレジット予算を入力する。保存された `copilotCredits` が上限へ達したら、実行中のChatをキャンセルし、Eienの監視と再開操作を停止する。

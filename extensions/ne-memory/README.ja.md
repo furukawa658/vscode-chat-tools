@@ -1,5 +1,3 @@
-<p align="center"><img src="https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/ne-memory/icon.png" width="128" alt="Ne"></p>
-
 # Ne: 同じ修正指示を、次のルールへ
 
 「そうじゃなくて」「前も言ったけど」。毎回のチャットで同じやり取りを繰り返すなら、Neが過去のセッションから修正パターンを見つけ、具体的なルール案にする。5秒の確認時間で内容を見直し、編集・取り消し・保存先変更・統合先の選択もできる。
