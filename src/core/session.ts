@@ -1,6 +1,6 @@
 // Copilot Chatのchatセッション(.jsonl)を復元する。形式は非公開で、実機(VS Code 1.147 / Copilot Chat 0.75)の観測に基づく。
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 export type Json = any;
 
@@ -57,6 +57,15 @@ export function listSessionFiles(chatSessionsDir: string): SessionFile[] {
       return { path, mtimeMs: statSync(path).mtimeMs };
     })
     .sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+export function sessionFileId(path: string): string {
+  return basename(path, ".jsonl");
+}
+
+export function findSessionFile(files: SessionFile[], id: string | undefined): SessionFile | undefined {
+  if (!id) return undefined;
+  return files.find((file) => sessionFileId(file.path) === id);
 }
 
 export function loadSession(path: string): Json {

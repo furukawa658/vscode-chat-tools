@@ -1,9 +1,12 @@
 # Tsugi: keep the task, lose the bloated chat
 
-## New: configure your next chat from the sidebar
+![Tsugi sidebar: choose a chat and hand it off](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/images/demo.gif)
+
+## New: choose the source chat from the sidebar
 
 The Tsugi sidebar turns chat handoff into a repeatable workflow:
 
+- Choose the exact chat to hand off when several chats exist in the workspace.
 - Set the suggested AI-credit budget for the next chat.
 - Choose summary-only, summary plus decisions, or full handoff context.
 - Open the new chat automatically, or copy the handoff to the clipboard.
@@ -20,10 +23,6 @@ Use it when you would rather continue working than rewrite the story from memory
 
 ![Tsugi overview](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/images/overview.png)
 
-![Tsugi in VS Code](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/images/demo.png)
-
-[Watch the demo](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/main/extensions/tsugi/images/demo.mp4)
-
 ## Does this sound familiar?
 
 - Halfway through a long conversation, you repeat the same correction again and again.
@@ -34,8 +33,9 @@ Use it when you would rather continue working than rewrite the story from memory
 
 | Feature | Details |
 | --- | --- |
-| **Next-chat sidebar** | Configure the credit target, handoff detail, automatic opening, and English or Japanese display in one panel. |
-| Fast live usage in the status bar | A resident Zig scanner reads the latest indexed token patches whenever the session file changes, without reconstructing the full chat object for every refresh. |
+| **Next-chat sidebar** | Choose the source chat and configure the credit target, handoff detail, automatic opening, and English or Japanese display in one panel. |
+| Explicit chat selection | Keep the selected chat stable even while another chat in the same workspace is updated. |
+| Fast live usage in the status bar | A resident Zig scanner reads the selected chat's indexed token patches whenever its session file changes, without reconstructing the full chat object for every refresh. |
 | No Zig setup required | Small native scanners ship for Windows, Linux, and macOS. If a scanner cannot read a session, Tsugi falls back to the JavaScript replay implementation. |
 | One-click handoff | Click the status bar to put a handoff prompt into a new chat input. The saved model and mode are inherited when available. |
 | One chat to many task chats | Run `Tsugi: Split into Separate Task Chats`, review the proposed independent tasks, and choose one or more tasks to place in separate chat sessions. |
@@ -46,11 +46,12 @@ Use it when you would rather continue working than rewrite the story from memory
 
 ## How to use
 
-1. Install the extension. The usage appears in the status bar.
-2. When it turns to the warning color, click it.
-3. Review the handoff prompt in the new chat and send it.
+1. Open the Tsugi sidebar.
+2. Select the source chat from the list.
+3. Choose the handoff detail and click **Hand off the selected chat**.
+4. Review the prompt in the new chat and send it.
 
-You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate Task Chats` from the Command Palette. Split asks for confirmation before sending the recent transcript to the selected language model. It validates the proposed task structure, lets you choose which tasks to create, and leaves every prompt unsent in a separate chat session for review.
+You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate Task Chats` from the Command Palette. When several chats exist, the command asks you to choose one. Split asks for confirmation before sending the selected transcript to the selected language model. It validates the proposed task structure, lets you choose which tasks to create, and leaves every prompt unsent in a separate chat session for review.
 
 ## Privacy
 
@@ -63,7 +64,7 @@ You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate 
 - It reads the chat save format (`chatSessions/*.jsonl`), which Copilot Chat does not publish. If the Zig scanner cannot read a session, Tsugi uses the JavaScript implementation and warns only when neither path can read it.
 - Model metadata and context size are parsed once in JavaScript. Later updates use the resident Zig process, so a large session object is not reconstructed for each status-bar refresh.
 - If token fields are unavailable, run `Developer: Set Log Level...`, choose GitHub Copilot Chat, and select `Debug` or `Trace`.
-- The usage shown is for the most recently updated chat in the workspace. It can differ from the chat on screen.
+- The status bar and handoff use the chat selected in the sidebar. If you have not selected one yet, Tsugi starts with the most recently updated chat.
 - The base overhead correction defaults to 0 because current prompt totals already include system instructions and tool definitions in the verified format.
 - Verified on VS Code 1.147 and Copilot Chat 0.75.
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { replaySession, SessionFormatError } from "../src/core/session";
+import { findSessionFile, replaySession, SessionFormatError, sessionFileId } from "../src/core/session";
 import { chatSelection, computeUsage, lastRequestState } from "../src/core/usage";
 import { diagnose } from "../src/core/diagnose";
 import { clusterCorrections, detectCorrections, parseRuleProposal, summarizeAiResponse } from "../src/ne/detect";
@@ -31,6 +31,15 @@ describe("session", () => {
   test("vなしのkind2は位置i以降を削除する", () => {
     const s = replaySession(L({ kind: 0, v: { pendingRequests: [1, 2] } }, { kind: 2, k: ["pendingRequests"], i: 0 }));
     expect(s.pendingRequests).toEqual([]);
+  });
+  test("選択したセッションIDを更新順から独立して解決する", () => {
+    const files = [
+      { path: join("storage", "chat-b.jsonl"), mtimeMs: 200 },
+      { path: join("storage", "chat-a.jsonl"), mtimeMs: 100 },
+    ];
+    expect(sessionFileId(files[0].path)).toBe("chat-b");
+    expect(findSessionFile(files, "chat-a")).toBe(files[1]);
+    expect(findSessionFile(files, "missing")).toBeUndefined();
   });
   test("形式違反はエラー", () => {
     expect(() => replaySession(L({ kind: 9 }))).toThrow(SessionFormatError);
@@ -71,10 +80,14 @@ describe("session", () => {
 describe("diagnose", () => {
   test("形式が違うデータで失敗を返す", () => {
     const d = mkdtempSync(join(tmpdir(), "chat-"));
-    writeFileSync(join(d, "a.jsonl"), L({ kind: 7 }));
+    const invalidPath = join(d, "a.jsonl");
+    writeFileSync(invalidPath, L({ kind: 7 }));
     expect(diagnose(d).ok).toBe(false);
-    writeFileSync(join(d, "b.jsonl"), sample);
+    const validPath = join(d, "b.jsonl");
+    writeFileSync(validPath, sample);
     expect(diagnose(d).ok).toBe(true);
+    expect(diagnose(d, invalidPath).ok).toBe(false);
+    expect(diagnose(d, validPath.replaceAll("\\", "/")).ok).toBe(true);
   });
 });
 

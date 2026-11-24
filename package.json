@@ -5,11 +5,13 @@
     "build": "bun run build.ts",
     "build:zig": "bun run scripts/build-zig.ts",
     "test": "bun test tests",
+    "test:vscode": "node tests/vscode-smoke/run.cjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "1.96.0",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.0"

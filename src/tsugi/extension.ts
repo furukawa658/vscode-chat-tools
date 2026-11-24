@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Json, listSessionFiles, loadSession, userText, responseText } from "../core/session";
+import { findSessionFile, Json, listSessionFiles, loadSession, SessionFile, sessionFileId, userText, responseText } from "../core/session";
 import { computeUsage } from "../core/usage";
 import { diagnose } from "../core/diagnose";
 import { computeUsageWithZig, stopZigScanner, ZigSessionMetadata } from "../core/zig";
@@ -9,22 +9,63 @@ import { diffSummary } from "../core/git";
 import { buildHandoff } from "../core/handoff";
 import { buildSplitHandoff, parseSplitTasks, SplitTask } from "../core/split";
 import { askModel, chatSessionsDir, workspaceFolders, resolveChatLaunchSelection, sendToNewChat } from "../core/workspace";
+import { renderSidebarHtml, SessionOption } from "./sidebar";
+
+function createSessionOptions(files: SessionFile[], baseOverheadTokens: number): SessionOption[] {
+  return files.flatMap((file) => {
+    try {
+      const session = loadSession(file.path);
+      const requests: Json[] = Array.isArray(session?.requests) ? session.requests : [];
+      const firstRequest = requests.map((request) => userText(request).trim()).find(Boolean) ?? "Untitled chat";
+      const usage = computeUsage(session, baseOverheadTokens);
+      return [{
+        id: sessionFileId(file.path),
+        title: firstRequest.replace(/\s+/g, " ").slice(0, 100),
+        requestCount: requests.length,
+        mtimeMs: file.mtimeMs,
+        usagePercent: usage ? Math.round(usage.ratio * 100) : undefined,
+      }];
+    } catch {
+      return [];
+    }
+  });
+}
 
 class TsugiSidebarProvider implements vscode.WebviewViewProvider {
-  constructor(private readonly ctx: vscode.ExtensionContext) {}
+  private view: vscode.WebviewView | undefined;
+  private sessionOptions: SessionOption[] = [];
+  private selectedSessionId: string | undefined;
+
+  constructor(
+    private readonly ctx: vscode.ExtensionContext,
+    private readonly onSelectSession: (id: string) => Promise<void>,
+    private readonly onResolve: () => Promise<void>,
+  ) {}
 
   resolveWebviewView(view: vscode.WebviewView) {
+    this.view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [this.ctx.extensionUri] };
     view.webview.html = this.render(view.webview);
+    view.onDidDispose(() => {
+      if (this.view === view) this.view = undefined;
+    });
+    void this.onResolve();
     view.webview.onDidReceiveMessage(async (message) => {
       const config = vscode.workspace.getConfiguration("tsugi");
+      if (message.type === "selectSession" && typeof message.value === "string") await this.onSelectSession(message.value);
       if (message.type === "setLanguage") await config.update("language", message.value, vscode.ConfigurationTarget.Global);
       if (message.type === "setCredits") await config.update("nextChatCredits", message.value, vscode.ConfigurationTarget.Global);
       if (message.type === "setHandoffMode") await config.update("handoffMode", message.value, vscode.ConfigurationTarget.Global);
       if (message.type === "setAutoOpen") await config.update("autoOpenNewChat", message.value, vscode.ConfigurationTarget.Global);
-      if (message.type === "handoff") await vscode.commands.executeCommand("tsugi.handoff");
-      if (["setLanguage", "setCredits", "setHandoffMode", "setAutoOpen"].includes(message.type)) view.webview.html = this.render(view.webview);
+      if (message.type === "handoff" && typeof message.value === "string") await vscode.commands.executeCommand("tsugi.handoff", message.value);
+      if (["setLanguage", "setCredits", "setHandoffMode", "setAutoOpen"].includes(message.type) && this.view) this.view.webview.html = this.render(this.view.webview);
     });
+  }
+
+  updateSessionOptions(options: SessionOption[], selectedId: string | undefined): void {
+    this.sessionOptions = options;
+    this.selectedSessionId = selectedId;
+    if (this.view) this.view.webview.html = this.render(this.view.webview);
   }
 
   private render(webview: vscode.Webview): string {
@@ -33,48 +74,62 @@ class TsugiSidebarProvider implements vscode.WebviewViewProvider {
     const credits = config.get<number>("nextChatCredits", 20);
     const mode = config.get<string>("handoffMode", "summary-decisions");
     const autoOpen = config.get<boolean>("autoOpenNewChat", true);
-    const ja = language === "ja";
-    const t = ja
-      ? { title: "次のチャット", credits: "クレジット予算", mode: "引継ぎ内容", summaryOnly: "要約のみ", summaryDecisions: "要約＋判断事項", full: "すべて含める", auto: "新チャットを自動で開く", handoff: "新しいチャットへ引き継ぐ", note: "予算はプロンプトへ記載します。VS Codeの課金上限を強制するものではありません。" }
-      : { title: "Next Chat", credits: "Credit budget", mode: "Handoff content", summaryOnly: "Summary only", summaryDecisions: "Summary and decisions", full: "Include all context", auto: "Open a new chat automatically", handoff: "Hand off to a new chat", note: "The budget is added to the prompt. It does not enforce a VS Code billing limit." };
-    const nonce = `${Date.now()}`;
-    return `<!doctype html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'"><style nonce="${nonce}">${this.styles()}</style></head><body>
-      <main><div class="head"><h1>${t.title}</h1><div class="lang" aria-label="Language"><button class="${!ja ? "active" : ""}" data-message="setLanguage" data-value="en">EN</button><button class="${ja ? "active" : ""}" data-message="setLanguage" data-value="ja">日本語</button></div></div>
-      <label>${t.credits}<input id="credits" type="number" min="1" step="1" value="${credits}" /></label>
-      <label>${t.mode}<select id="mode"><option value="summary-only" ${mode === "summary-only" ? "selected" : ""}>${t.summaryOnly}</option><option value="summary-decisions" ${mode === "summary-decisions" ? "selected" : ""}>${t.summaryDecisions}</option><option value="full" ${mode === "full" ? "selected" : ""}>${t.full}</option></select></label>
-      <label class="check"><input id="auto" type="checkbox" ${autoOpen ? "checked" : ""}/><span>${t.auto}</span></label>
-      <button id="handoff" class="primary">${t.handoff}</button><p class="note">${t.note}</p></main>
-      <script nonce="${nonce}">const vscode=acquireVsCodeApi();document.querySelectorAll('[data-message]').forEach(b=>b.addEventListener('click',()=>vscode.postMessage({type:b.dataset.message,value:b.dataset.value})));document.getElementById('credits').addEventListener('change',e=>vscode.postMessage({type:'setCredits',value:Math.max(1,Math.round(Number(e.target.value)||20))}));document.getElementById('mode').addEventListener('change',e=>vscode.postMessage({type:'setHandoffMode',value:e.target.value}));document.getElementById('auto').addEventListener('change',e=>vscode.postMessage({type:'setAutoOpen',value:e.target.checked}));document.getElementById('handoff').addEventListener('click',()=>vscode.postMessage({type:'handoff'}));</script></body></html>`;
-  }
-
-  private styles(): string {
-    return `body{font-family:var(--vscode-font-family);color:var(--vscode-foreground);font-size:13px;padding:10px}main{display:flex;flex-direction:column;gap:12px}.head{display:flex;align-items:center;justify-content:space-between}h1{font-size:14px;margin:0}.lang{display:flex;gap:2px}.lang button{border:1px solid var(--vscode-button-border,transparent);background:var(--vscode-input-background);color:var(--vscode-foreground);padding:4px 6px}.lang button.active{background:var(--vscode-button-background);color:var(--vscode-button-foreground)}label{display:flex;flex-direction:column;gap:5px}input[type=number],select{box-sizing:border-box;width:100%;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,var(--vscode-widget-border));padding:7px}.check{flex-direction:row;align-items:center}.check input{margin:0}.primary{border:0;background:var(--vscode-button-background);color:var(--vscode-button-foreground);padding:8px 10px}.note{color:var(--vscode-descriptionForeground);font-size:11px;line-height:1.45;margin:0}`;
+    return renderSidebarHtml({
+      language,
+      credits,
+      mode,
+      autoOpen,
+      sessionOptions: this.sessionOptions,
+      selectedSessionId: this.selectedSessionId,
+      nonce: `${Date.now()}`,
+    });
   }
 }
 
 export function activate(ctx: vscode.ExtensionContext) {
-  ctx.subscriptions.push(vscode.window.registerWebviewViewProvider("tsugi.sidebar", new TsugiSidebarProvider(ctx)));
-  const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  bar.command = "tsugi.handoff";
-  ctx.subscriptions.push(bar);
   const dir = chatSessionsDir(ctx);
+  const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  const selectedSessionKey = "tsugi.selectedSessionId";
+  let selectedSessionId = ctx.workspaceState.get<string>(selectedSessionKey);
   let metadataCache: (ZigSessionMetadata & { path: string }) | undefined;
   let zigDisabled = false;
   let refreshing = false;
 
-  const refresh = async () => {
-    if (!dir || refreshing) return bar.hide();
+  async function refresh(): Promise<void> {
+    if (!dir || refreshing) {
+      bar.hide();
+      return;
+    }
     refreshing = true;
     try {
-      const file = listSessionFiles(dir)[0];
-      if (!file) return bar.hide();
+      const files = listSessionFiles(dir);
+      const selectedFile = findSessionFile(files, selectedSessionId);
+      const optionFiles = selectedFile && !files.slice(0, 50).some((file) => file.path === selectedFile.path)
+        ? [selectedFile, ...files.slice(0, 50)]
+        : files.slice(0, 50);
       const baseOverheadTokens = vscode.workspace.getConfiguration("tsugi").get<number>("baseOverheadTokens", 0);
+      const options = createSessionOptions(optionFiles, baseOverheadTokens);
+      const availableSelectedId = options.some((option) => option.id === selectedSessionId) ? selectedSessionId : options[0]?.id;
+      const file = findSessionFile(files, availableSelectedId);
+      if (!availableSelectedId || !file) {
+        provider.updateSessionOptions([], undefined);
+        bar.hide();
+        return;
+      }
+      if (selectedSessionId !== availableSelectedId) {
+        selectedSessionId = availableSelectedId;
+        await ctx.workspaceState.update(selectedSessionKey, selectedSessionId);
+        metadataCache = undefined;
+      }
+      provider.updateSessionOptions(options, selectedSessionId);
+
       let baseline;
       if (!metadataCache || metadataCache.path !== file.path || zigDisabled) {
-        const diagnosis = diagnose(dir);
+        const diagnosis = diagnose(dir, file.path);
         if (!diagnosis.ok) {
           bar.text = "$(warning) Tsugi停止";
           bar.tooltip = `${diagnosis.message}\nVS Code ${vscode.version}。保存形式が変わった可能性がある。`;
+          bar.command = { command: "tsugi.handoff", title: "Hand off selected chat", arguments: [selectedSessionId] };
           return bar.show();
         }
         baseline = computeUsage(loadSession(file.path), baseOverheadTokens);
@@ -94,13 +149,15 @@ export function activate(ctx: vscode.ExtensionContext) {
           accelerated = undefined;
         }
       }
-      const u = accelerated ?? baseline ?? computeUsage(loadSession(file.path), baseOverheadTokens);
-      if (!u) return bar.hide();
-      const pct = Math.round(u.ratio * 100);
-      const categories = u.promptBreakdown.map((part) => `${part.label} ${part.percentage}%`).join(" · ");
-      const tools = u.toolNames.length ? `\nTools in this turn: ${u.toolNames.join(", ")}` : "";
+      const usage = accelerated ?? baseline ?? computeUsage(loadSession(file.path), baseOverheadTokens);
+      if (!usage) return bar.hide();
+      const pct = Math.round(usage.ratio * 100);
+      const categories = usage.promptBreakdown.map((part) => `${part.label} ${part.percentage}%`).join(" · ");
+      const tools = usage.toolNames.length ? `\nTools in this turn: ${usage.toolNames.join(", ")}` : "";
+      const title = options.find((option) => option.id === selectedSessionId)?.title ?? selectedSessionId;
       bar.text = `$(comment-discussion) ${pct}%`;
-      bar.tooltip = `${u.occupiedTokens.toLocaleString()} / ${u.contextSize.toLocaleString()} tokens (${u.promptTokens.toLocaleString()} prompt + ${u.completionTokens.toLocaleString()} completion). Click to hand off.\nModel: ${u.modelId || "current"} · Mode: ${u.mode || "current"}${categories ? `\n${categories}` : ""}${tools}\nUses the most recently updated session, which can differ from the visible chat.`;
+      bar.tooltip = `${usage.occupiedTokens.toLocaleString()} / ${usage.contextSize.toLocaleString()} tokens (${usage.promptTokens.toLocaleString()} prompt + ${usage.completionTokens.toLocaleString()} completion). Click to hand off.\nSelected chat: ${title}\nModel: ${usage.modelId || "current"} · Mode: ${usage.mode || "current"}${categories ? `\n${categories}` : ""}${tools}\nChange the source in the Tsugi sidebar.`;
+      bar.command = { command: "tsugi.handoff", title: "Hand off selected chat", arguments: [selectedSessionId] };
       bar.color = pct >= vscode.workspace.getConfiguration("tsugi").get<number>("warnPercent", 80) ? new vscode.ThemeColor("statusBarItem.warningForeground") : undefined;
       bar.show();
     } catch {
@@ -108,12 +165,50 @@ export function activate(ctx: vscode.ExtensionContext) {
     } finally {
       refreshing = false;
     }
-  };
+  }
 
+  async function selectSession(id: string): Promise<void> {
+    if (!dir || !findSessionFile(listSessionFiles(dir), id)) return;
+    selectedSessionId = id;
+    metadataCache = undefined;
+    await ctx.workspaceState.update(selectedSessionKey, id);
+    await refresh();
+  }
+
+  async function resolveCommandSession(requestedId?: string): Promise<Json | undefined> {
+    if (!dir) return undefined;
+    const files = listSessionFiles(dir);
+    if (!files.length) return undefined;
+    let file = findSessionFile(files, requestedId);
+    if (!file && files.length === 1) file = files[0];
+    if (!file) {
+      const options = createSessionOptions(files.slice(0, 50), 0).map((option) => ({ label: option.title, description: `${option.usagePercent ?? "?"}% · ${option.requestCount} exchanges`, id: option.id }));
+      const picked = await vscode.window.showQuickPick(options, {
+        title: "Select the chat to hand off",
+        placeHolder: "Choose the source chat explicitly",
+      });
+      if (!picked) return undefined;
+      file = findSessionFile(files, picked.id);
+    }
+    if (!file) return undefined;
+    const diagnosis = diagnose(dir, file.path);
+    if (!diagnosis.ok) {
+      await vscode.window.showWarningMessage(`チャット保存ファイルを読めないため引き継げない。${diagnosis.message}`);
+      return undefined;
+    }
+    selectedSessionId = sessionFileId(file.path);
+    await ctx.workspaceState.update(selectedSessionKey, selectedSessionId);
+    metadataCache = undefined;
+    await refresh();
+    return loadSession(file.path);
+  }
+
+  const provider = new TsugiSidebarProvider(ctx, selectSession, refresh);
+  ctx.subscriptions.push(vscode.window.registerWebviewViewProvider("tsugi.sidebar", provider), bar);
   ctx.subscriptions.push(
-    vscode.commands.registerCommand("tsugi.handoff", async () => {
-      if (!dir || !diagnose(dir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めないため引き継げない。");
-      const session = loadSession(listSessionFiles(dir)[0].path);
+    vscode.commands.registerCommand("tsugi.handoff", async (requestedId?: string) => {
+      const session = await resolveCommandSession(requestedId);
+      if (!session) return;
       const config = vscode.workspace.getConfiguration("tsugi");
       const credits = config.get<number>("nextChatCredits", 20);
       const mode = config.get<string>("handoffMode", "summary-decisions");
@@ -125,7 +220,7 @@ export function activate(ctx: vscode.ExtensionContext) {
           ? "Preserve the goal, confirmed decisions, unresolved items, and relevant acceptance checks."
           : "Preserve the complete available handoff context without dropping relevant file or Git details.";
       text = `# Next-chat budget: ${credits} AI credits\n\n${modeInstruction}\n\n${text}`;
-      if (vscode.workspace.getConfiguration("tsugi").get<boolean>("saveHandoff", true)) {
+      if (config.get<boolean>("saveHandoff", true)) {
         mkdirSync(ctx.globalStorageUri.fsPath, { recursive: true });
         writeFileSync(join(ctx.globalStorageUri.fsPath, `handoff-${Date.now()}.md`), text, "utf8");
       }
@@ -137,14 +232,14 @@ export function activate(ctx: vscode.ExtensionContext) {
         await vscode.window.showInformationMessage("Tsugi: handoff copied to the clipboard. Open a new chat and paste it.");
       }
     }),
-    vscode.commands.registerCommand("tsugi.split", async () => {
-      if (!dir || !diagnose(dir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めないため分割できない。");
-      const session = loadSession(listSessionFiles(dir)[0].path);
+    vscode.commands.registerCommand("tsugi.split", async (requestedId?: string) => {
+      const session = await resolveCommandSession(requestedId);
+      if (!session) return;
       const transcript = (session.requests ?? []).slice(-12).map((request: Json, index: number) =>
         `## Exchange ${index + 1}\nUser: ${userText(request).slice(0, 1000)}\nAssistant: ${responseText(request).slice(-1200)}`,
       ).join("\n\n");
       const consent = await vscode.window.showWarningMessage(
-        "Send the latest chat transcript to the selected language model to identify independent tasks?",
+        "Send the selected chat transcript to the selected language model to identify independent tasks?",
         { modal: true },
         "Send",
       );
@@ -184,8 +279,8 @@ export function activate(ctx: vscode.ExtensionContext) {
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(dir, "*.jsonl"));
     ctx.subscriptions.push(watcher, watcher.onDidCreate(() => void refresh()), watcher.onDidChange(() => void refresh()), watcher.onDidDelete(() => void refresh()));
   }
-  const t = setInterval(() => void refresh(), 5000);
-  ctx.subscriptions.push({ dispose: () => clearInterval(t) }, { dispose: stopZigScanner });
+  const timer = setInterval(() => void refresh(), 5000);
+  ctx.subscriptions.push({ dispose: () => clearInterval(timer) }, { dispose: stopZigScanner });
   void refresh();
 }
 
