@@ -80,10 +80,14 @@ describe("session", () => {
 describe("diagnose", () => {
   test("形式が違うデータで失敗を返す", () => {
     const d = mkdtempSync(join(tmpdir(), "chat-"));
-    writeFileSync(join(d, "a.jsonl"), L({ kind: 7 }));
+    const invalidPath = join(d, "a.jsonl");
+    writeFileSync(invalidPath, L({ kind: 7 }));
     expect(diagnose(d).ok).toBe(false);
-    writeFileSync(join(d, "b.jsonl"), sample);
+    const validPath = join(d, "b.jsonl");
+    writeFileSync(validPath, sample);
     expect(diagnose(d).ok).toBe(true);
+    expect(diagnose(d, invalidPath).ok).toBe(false);
+    expect(diagnose(d, validPath.replaceAll("\\", "/")).ok).toBe(true);
   });
 });
 
