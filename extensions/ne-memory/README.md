@@ -58,6 +58,7 @@ Your repeated instruction becomes reusable project knowledge instead of another 
 
 | When you need... | Extension | Role |
 | --- | --- | --- |
+| Concise failures instead of raw build and test logs | [Zuma MCP](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.inazuma-pwsh) | Returns focused diagnostics, file sections, and task-scope reminders. |
 | Searchable lessons from past tasks | [Kioku](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.kioku-search) | Stores reusable outcomes, causes, and lessons across chats. |
 | A fresh chat before context gets overloaded | [Tsugi](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.tsugi) | Creates a reviewed handoff prompt for the next chat. |
 | Overnight continuation with a credit limit | [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | Resumes stalled work and stops at the configured budget. |

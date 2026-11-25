@@ -84,6 +84,7 @@ You can also run `Tsugi: Hand Off to a New Chat` or `Tsugi: Split into Separate 
 
 | When you need... | Extension | Role |
 | --- | --- | --- |
+| Concise failures instead of raw build and test logs | [Zuma MCP](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.inazuma-pwsh) | Returns focused diagnostics, file sections, and task-scope reminders. |
 | Long-term recall across chats | [Kioku](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.kioku-search) | Saves and searches lessons from earlier tasks. |
 | Reusable rules from repeated corrections | [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory) | Turns recurring instructions into Copilot rules. |
 | Overnight continuation with a credit limit | [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien) | Resumes stalled work and stops at the configured budget. |
