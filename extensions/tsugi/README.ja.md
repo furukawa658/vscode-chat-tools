@@ -73,6 +73,7 @@ Tsugiのアクティビティバーアイコンからサイドバーを開く。
 
 ## 関連する拡張機能
 
+- [Zuma MCP](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.inazuma-pwsh): 巨大なビルド・テストログを、必要な失敗箇所と診断だけに絞る
 - [Eien](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.eien): 夜間に止まったチャットを再開させる
 - [Ne](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.ne-memory): 繰り返した修正指示をルール化する
 - 3つまとめて入れる: [Pack](https://marketplace.visualstudio.com/items?itemName=ShunsukeF.vscode-chat-tools-pack)
