@@ -161,3 +161,11 @@ describe("handoff", () => {
   });
 });
 
+
+describe("Ne cue detection", () => {
+  const session = (second: string) => ({ sessionId: "s", requests: [{ message: { text: "a" } }, { message: { text: second } }] });
+  test("ordinary don't is not a correction but an imperative reversal is", () => {
+    expect(detectCorrections(session("Please don't forget the tests"))).toEqual([]);
+    expect(detectCorrections(session("don't change the API")).length).toBe(1);
+  });
+});

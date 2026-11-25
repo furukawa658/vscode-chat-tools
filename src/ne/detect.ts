@@ -1,6 +1,6 @@
 import { Json, responseText, userText } from "../core/session";
 
-const CUES = [/そうじゃない/, /違う(?:よ|って|です)/, /やり直/, /しないで/, /ではなく/, /って言った/, /勝手に/, /何度も/, /また(?:同じ|間違)/, /\bI said\b/i, /\bdon'?t\b/i, /\bnot what I\b/i];
+const CUES = [/そうじゃない/, /違う(?:よ|って|です)/, /やり直/, /しないで/, /ではなく/, /って言った/, /勝手に/, /何度も/, /また(?:同じ|間違)/, /\bI said\b/i, /\bdon'?t (?:do|use|add|change|touch|edit|delete|remove|rewrite)\b/i, /\bnot what I\b/i];
 
 export interface AiResponseSummary {
   outputCharacters: number;
@@ -102,11 +102,4 @@ export function clusterCorrections(corrections: Correction[]): FrictionCluster[]
     corrections: items,
     uniqueSessions: new Set(items.map((item) => item.sessionId)).size,
   }));
-}
-
-/** 修正指示と応答の重複を除いた同一内容の再発回数。 */
-export function countRecurrence(corrections: Correction[], ruleText: string): number {
-  const words = ruleText.split(/[\s、。]+/).filter((word) => word.length >= 3);
-  if (words.length === 0) return 0;
-  return corrections.filter((correction) => words.some((word) => correction.text.includes(word))).length;
 }

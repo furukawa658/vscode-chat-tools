@@ -161,6 +161,7 @@ export function activate(ctx: vscode.ExtensionContext) {
   };
 
   ctx.subscriptions.push(
+    { dispose: () => timer && clearInterval(timer) },
     vscode.commands.registerCommand("eien.start", async () => {
       if (active) return vscode.window.showInformationMessage("Eienはすでに監視中です。");
       if (!dir || !diagnose(dir).ok) return vscode.window.showWarningMessage("チャット保存ファイルを読めないため開始できない。");
@@ -193,7 +194,7 @@ export function activate(ctx: vscode.ExtensionContext) {
       bar.text = `$(shield) Eien 0/${creditBudget} AIC`;
       bar.command = "eien.stop";
       bar.show();
-      timer = setInterval(() => void tick(), 15000);
+      timer = setInterval(() => tick().catch((error) => report(`監視エラー: ${(error as Error).message}`)), 15000);
     }),
     vscode.commands.registerCommand("eien.stop", () => stop("手動停止")),
     vscode.commands.registerCommand("eien.report", async () => {
