@@ -130,6 +130,12 @@ describe("handoff", () => {
     expect(t).toContain("STATUS");
   });
 
+  test("上限超過でも作業ツリーの状態を残す", () => {
+    const t = buildHandoff(replaySession(sample), "STATUS", 120);
+    expect(t).toContain("STATUS");
+    expect(t.length).toBeLessThanOrEqual(120);
+  });
+
   test("分割案を型検証しタスク固有の引き継ぎを作る", () => {
     const tasks = parseSplitTasks(JSON.stringify([{
       title: "共通関数を整理",
