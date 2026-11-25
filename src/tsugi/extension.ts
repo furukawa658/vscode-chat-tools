@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { randomBytes } from "node:crypto";
 import { findSessionFile, Json, listSessionFiles, loadSession, SessionFile, sessionFileId, userText, responseText } from "../core/session";
 import { computeUsage } from "../core/usage";
 import { diagnose } from "../core/diagnose";
@@ -63,6 +64,7 @@ class TsugiSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   updateSessionOptions(options: SessionOption[], selectedId: string | undefined): void {
+    if (JSON.stringify(options) === JSON.stringify(this.sessionOptions) && selectedId === this.selectedSessionId) return;
     this.sessionOptions = options;
     this.selectedSessionId = selectedId;
     if (this.view) this.view.webview.html = this.render(this.view.webview);
@@ -81,7 +83,7 @@ class TsugiSidebarProvider implements vscode.WebviewViewProvider {
       autoOpen,
       sessionOptions: this.sessionOptions,
       selectedSessionId: this.selectedSessionId,
-      nonce: `${Date.now()}`,
+      nonce: randomBytes(16).toString("hex"),
     });
   }
 }
@@ -127,8 +129,11 @@ export function activate(ctx: vscode.ExtensionContext) {
       if (!metadataCache || metadataCache.path !== file.path || zigDisabled) {
         const diagnosis = diagnose(dir, file.path);
         if (!diagnosis.ok) {
-          bar.text = "$(warning) Tsugi停止";
-          bar.tooltip = `${diagnosis.message}\nVS Code ${vscode.version}。保存形式が変わった可能性がある。`;
+          const ja = vscode.workspace.getConfiguration("tsugi").get<string>("language", "en") === "ja";
+          bar.text = ja ? "$(warning) Tsugi停止" : "$(warning) Tsugi stopped";
+          bar.tooltip = ja
+            ? `${diagnosis.message}\nVS Code ${vscode.version}。保存形式が変わった可能性がある。`
+            : `${diagnosis.message}\nVS Code ${vscode.version}. The chat storage format may have changed.`;
           bar.command = { command: "tsugi.handoff", title: "Hand off selected chat", arguments: [selectedSessionId] };
           return bar.show();
         }
