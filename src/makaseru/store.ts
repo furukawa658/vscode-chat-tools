@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import initSqlJs, { Database } from "sql.js";
 import lockfile from "proper-lockfile";
+import { SCHEMA_VERSION, statusPath, type WorkspaceStatus } from "./status";
 
 const execFileAsync = promisify(execFile);
 const statuses = ["CREATED", "IN_PROGRESS", "WAITING_PARENT", "NEEDS_PARENT_REVIEW", "COMPLETED", "ESCALATED"] as const;
@@ -38,6 +39,9 @@ export interface DispatchInput {
   maxAttempts: number;
   maxQuestions: number;
   verificationGates?: VerificationGate[];
+  groundTruth?: string[];
+  knownSymbols?: string[];
+  forbiddenAssumptions?: string[];
 }
 
 export interface Fact {
@@ -106,6 +110,9 @@ export interface TaskBrief {
   allowedScope: string[];
   checklistToComplete: Criterion[];
   verificationGates: VerificationGate[];
+  groundTruth: string[];
+  knownSymbols: string[];
+  forbiddenAssumptions: string[];
   contextRefs: string[];
   remainingAttempts: number;
   questions: Question[];
@@ -116,6 +123,25 @@ export interface CompletionResult {
   status: TaskStatus;
   attemptsUsed: number;
   reasons: string[];
+}
+
+export interface TaskStateResource {
+  taskId: string;
+  kind: TaskKind;
+  status: TaskStatus;
+  attemptCount: number;
+  remainingAttempts: number;
+  updatedAt: string;
+  openQuestions: Question[];
+}
+
+export interface ActiveBoardResource {
+  created: Array<{ taskId: string; goal: string; status: TaskStatus }>;
+  inProgress: Array<{ taskId: string; goal: string; status: TaskStatus }>;
+  waitingParent: Array<{ taskId: string; goal: string; status: TaskStatus; updatedAt: string; questions: Question[] }>;
+  needsParentReview: Array<{ taskId: string; goal: string; status: TaskStatus; updatedAt: string; summary: string; assumptions: string[] }>;
+  completed: Array<{ taskId: string; goal: string; status: TaskStatus }>;
+  escalated: Array<{ taskId: string; goal: string; status: TaskStatus; reason?: string }>;
 }
 
 function normalizePath(path: string): string {
@@ -164,6 +190,10 @@ function sha256(content: Uint8Array | string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
+function databaseSchemaVersion(db: Database): number {
+  return Number(db.exec("PRAGMA user_version")[0]?.values[0]?.[0] ?? 0);
+}
+
 let sqlPromise: ReturnType<typeof initSqlJs> | undefined;
 function sqlRuntime() {
   const wasmPath = process.env.MAKASERU_SQL_WASM_PATH ?? join(process.cwd(), "node_modules", "sql.js", "dist", "sql-wasm.wasm");
@@ -195,6 +225,9 @@ export class MakaseruStore {
     const task: TaskRecord = {
       ...input,
       verificationGates: input.verificationGates ?? [],
+      groundTruth: input.groundTruth ?? [],
+      knownSymbols: input.knownSymbols ?? [],
+      forbiddenAssumptions: input.forbiddenAssumptions ?? [],
       taskId,
       workspaceHash: this.workspaceHash,
       handoffToken,
@@ -242,22 +275,60 @@ export class MakaseruStore {
         task.updatedAt = new Date().toISOString();
         this.writeTask(db, task);
       }
+      return this.buildTaskBrief(db, task);
+    });
+  }
+
+  async readContractResource(taskId: string, handoffToken: string): Promise<TaskBrief> {
+    return this.withDb((db) => {
+      const task = this.requireChildTask(db, taskId, handoffToken);
+      return this.buildTaskBrief(db, task);
+    });
+  }
+
+  async readStateResource(taskId: string, handoffToken: string): Promise<TaskStateResource> {
+    return this.withDb((db) => {
+      const task = this.requireChildTask(db, taskId, handoffToken);
       return {
         taskId: task.taskId,
         kind: task.kind,
-        singleGoal: task.goal,
-        inheritedFacts: task.dependsOn.flatMap((id) => {
-          const prerequisite = this.readTask(db, id);
-          const facts = prerequisite?.finalReport?.facts;
-          return Array.isArray(facts) ? facts.map((fact: Fact) => `${id}: ${fact.statement}`) : [];
-        }),
-        doNot: task.constraints,
-        allowedScope: task.allowedScope,
-        checklistToComplete: task.criteria,
-        verificationGates: task.verificationGates ?? [],
-        contextRefs: task.contextRefs,
+        status: task.status,
+        attemptCount: task.attemptCount,
         remainingAttempts: Math.max(0, task.maxAttempts - task.attemptCount),
-        questions: task.questions,
+        updatedAt: task.updatedAt,
+        openQuestions: task.questions.filter((question) => question.status === "OPEN"),
+      };
+    });
+  }
+
+  async readActiveBoardResource(parentSessionId: string, parentSecret: string): Promise<ActiveBoardResource> {
+    return this.withDb((db) => {
+      const matchingWorkspace = this.allTasks(db).filter((task) => task.workspaceHash === this.workspaceHash);
+      const authorized = matchingWorkspace.some((task) => task.parentSessionId === parentSessionId && task.parentSecret === parentSecret);
+      if (!authorized) throw new Error("PARENT_IDENTITY_MISMATCH");
+      const tasks = matchingWorkspace.filter((task) => task.parentSessionId === parentSessionId);
+      const summary = (task: TaskRecord) => ({ taskId: task.taskId, goal: task.goal, status: task.status });
+      return {
+        created: tasks.filter((task) => task.status === "CREATED").map(summary),
+        inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").map(summary),
+        waitingParent: tasks.filter((task) => task.status === "WAITING_PARENT").map((task) => ({
+          ...summary(task),
+          updatedAt: task.updatedAt,
+          questions: task.questions.filter((question) => question.status === "OPEN"),
+        })),
+        needsParentReview: tasks.filter((task) => task.status === "NEEDS_PARENT_REVIEW").map((task) => ({
+          ...summary(task),
+          updatedAt: task.updatedAt,
+          summary: typeof task.finalReport?.summary === "string" ? task.finalReport.summary : "",
+          assumptions: Array.isArray(task.finalReport?.assumptions)
+            ? task.finalReport.assumptions.filter((assumption): assumption is string => typeof assumption === "string")
+            : [],
+        })),
+        completed: tasks.filter((task) => task.status === "COMPLETED").map(summary),
+        escalated: tasks.filter((task) => task.status === "ESCALATED").map((task) => ({
+          ...summary(task),
+          reason: task.escalationReason,
+        })),
       };
     });
   }
@@ -298,26 +369,26 @@ export class MakaseruStore {
     const taskBefore = await this.withDb((db) => this.requireChildTask(db, input.taskId, input.handoffToken));
     if (!["IN_PROGRESS", "CREATED"].includes(taskBefore.status)) throw new Error(`TASK_STATUS_ERROR: ${taskBefore.status}`);
 
-    return this.withDb(async (db) => {
+    const reasons = this.validateSubmission(taskBefore, input);
+    const currentSnapshot = await this.captureWorkspaceSnapshot(taskBefore.allowedScope);
+    const actualChanges = this.changedPaths(taskBefore.baseline, currentSnapshot);
+    for (const changed of actualChanges) {
+      const full = resolve(this.workspaceRoot, changed);
+      if (existsSync(full)) {
+        try { resolveInside(this.workspaceRoot, changed); }
+        catch { reasons.push(`SYMLINK_ESCAPE: ${changed}`); }
+      }
+    }
+    if (taskBefore.kind === "INSPECT" && actualChanges.length > 0) reasons.push(`GIT_READONLY_VIOLATION: ${actualChanges.join(", ")}`);
+    const reported = new Set(input.modifiedFiles.map(normalizePath));
+    for (const changed of actualChanges) if (!reported.has(changed)) reasons.push(`UNREPORTED_CHANGE: ${changed}`);
+    for (const changed of actualChanges) if (!matchesScope(changed, taskBefore.allowedScope)) reasons.push(`SCOPE_VIOLATION: ${changed}`);
+    if ((taskBefore.kind === "EDIT" || taskBefore.kind === "DRAFT") && actualChanges.length === 0) reasons.push("GATE_NO_ACTUAL_CHANGE");
+    if (reasons.length === 0) reasons.push(...await this.runVerificationGates(taskBefore.verificationGates ?? [], actualChanges.length > 0));
+
+    return this.withDb((db) => {
       const task = this.requireChildTask(db, input.taskId, input.handoffToken);
       if (task.status !== taskBefore.status || task.attemptCount !== taskBefore.attemptCount || task.updatedAt !== taskBefore.updatedAt) throw new Error("TASK_CHANGED_DURING_VERIFICATION");
-      const reasons = this.validateSubmission(task, input);
-      const currentSnapshot = await this.captureWorkspaceSnapshot(task.allowedScope);
-      const actualChanges = this.changedPaths(task.baseline, currentSnapshot);
-      for (const changed of actualChanges) {
-        const full = resolve(this.workspaceRoot, changed);
-        if (existsSync(full)) {
-          try { resolveInside(this.workspaceRoot, changed); }
-          catch { reasons.push(`SYMLINK_ESCAPE: ${changed}`); }
-        }
-      }
-      if (task.kind === "INSPECT" && actualChanges.length > 0) reasons.push(`GIT_READONLY_VIOLATION: ${actualChanges.join(", ")}`);
-      const reported = new Set(input.modifiedFiles.map(normalizePath));
-      for (const changed of actualChanges) if (!reported.has(changed)) reasons.push(`UNREPORTED_CHANGE: ${changed}`);
-      for (const changed of actualChanges) if (!matchesScope(changed, task.allowedScope)) reasons.push(`SCOPE_VIOLATION: ${changed}`);
-      if ((task.kind === "EDIT" || task.kind === "DRAFT") && actualChanges.length === 0) reasons.push("GATE_NO_ACTUAL_CHANGE");
-      if (reasons.length === 0) reasons.push(...await this.runVerificationGates(task.verificationGates ?? [], actualChanges.length > 0));
-
       task.attemptCount += 1;
       task.updatedAt = new Date().toISOString();
       if (reasons.length > 0) {
@@ -338,15 +409,15 @@ export class MakaseruStore {
   async review(taskId: string, parentSecret: string, approve: boolean, reason?: string) {
     const taskBefore = await this.withDb((db) => this.requireParentTask(db, taskId, parentSecret));
     if (taskBefore.status !== "NEEDS_PARENT_REVIEW") throw new Error(`TASK_STATUS_ERROR: ${taskBefore.status}`);
-    return this.withDb(async (db) => {
+    if (approve) {
+      const currentSnapshot = await this.captureWorkspaceSnapshot(taskBefore.allowedScope);
+      const actualChange = this.changedPaths(taskBefore.baseline, currentSnapshot).length > 0;
+      const gateReasons = await this.runVerificationGates(taskBefore.verificationGates ?? [], actualChange);
+      if (gateReasons.length > 0) throw new Error(`REVIEW_VERIFICATION_FAILED: ${gateReasons.join(" | ")}`);
+    }
+    return this.withDb((db) => {
       const task = this.requireParentTask(db, taskId, parentSecret);
-      if (task.status !== taskBefore.status || task.updatedAt !== taskBefore.updatedAt) throw new Error("TASK_CHANGED_DURING_REVIEW");
-      if (approve) {
-        const currentSnapshot = await this.captureWorkspaceSnapshot(task.allowedScope);
-        const actualChange = this.changedPaths(task.baseline, currentSnapshot).length > 0;
-        const gateReasons = await this.runVerificationGates(task.verificationGates ?? [], actualChange);
-        if (gateReasons.length > 0) throw new Error(`REVIEW_VERIFICATION_FAILED: ${gateReasons.join(" | ")}`);
-      }
+      if (task.status !== taskBefore.status || task.attemptCount !== taskBefore.attemptCount || task.updatedAt !== taskBefore.updatedAt) throw new Error("TASK_CHANGED_DURING_REVIEW");
       task.status = approve ? "COMPLETED" : "IN_PROGRESS";
       task.updatedAt = new Date().toISOString();
       if (!approve) task.constraints.push(`Parent rejected assumptions: ${reason?.trim() || "revise and resubmit"}`);
@@ -377,6 +448,29 @@ export class MakaseruStore {
       if (tasks.length === 0) throw new Error("PARENT_IDENTITY_MISMATCH");
       return tasks.slice(-30).map((task) => `${task.taskId}\t${task.status}\t${task.goal}`).join("\n");
     });
+  }
+
+  private buildTaskBrief(db: Database, task: TaskRecord): TaskBrief {
+    return {
+      taskId: task.taskId,
+      kind: task.kind,
+      singleGoal: task.goal,
+      inheritedFacts: task.dependsOn.flatMap((id) => {
+        const prerequisite = this.readTask(db, id);
+        const facts = prerequisite?.finalReport?.facts;
+        return Array.isArray(facts) ? facts.map((fact: Fact) => `${id}: ${fact.statement}`) : [];
+      }),
+      doNot: task.constraints,
+      allowedScope: task.allowedScope,
+      checklistToComplete: task.criteria,
+      verificationGates: task.verificationGates ?? [],
+      groundTruth: task.groundTruth ?? [],
+      knownSymbols: task.knownSymbols ?? [],
+      forbiddenAssumptions: task.forbiddenAssumptions ?? [],
+      contextRefs: task.contextRefs,
+      remainingAttempts: Math.max(0, task.maxAttempts - task.attemptCount),
+      questions: task.questions,
+    };
   }
 
   private validateSubmission(task: TaskRecord, input: CompleteInput): string[] {
@@ -519,6 +613,31 @@ export class MakaseruStore {
     statement.free();
   }
 
+  private writeWorkspaceStatus(db: Database) {
+    const tasks = this.allTasks(db).filter((task) => task.workspaceHash === this.workspaceHash);
+    const count = (status: TaskStatus) => tasks.filter((task) => task.status === status).length;
+    const status: WorkspaceStatus = {
+      schemaVersion: SCHEMA_VERSION,
+      workspaceHash: this.workspaceHash,
+      workspaceRoot: this.workspaceRoot,
+      created: count("CREATED"),
+      inProgress: count("IN_PROGRESS"),
+      waitingParent: count("WAITING_PARENT"),
+      needsParentReview: count("NEEDS_PARENT_REVIEW"),
+      completed: count("COMPLETED"),
+      escalated: count("ESCALATED"),
+      updatedAt: new Date().toISOString(),
+    };
+    const finalPath = statusPath(this.databasePath);
+    const temporaryPath = `${finalPath}.${process.pid}.${randomBytes(3).toString("hex")}.tmp`;
+    try {
+      writeFileSync(temporaryPath, JSON.stringify(status));
+      renameSync(temporaryPath, finalPath);
+    } finally {
+      rmSync(temporaryPath, { force: true });
+    }
+  }
+
   private async withDb<T>(operation: (db: Database) => Promise<T> | T): Promise<T> {
     mkdirSync(dirname(this.databasePath), { recursive: true });
     if (!existsSync(this.databasePath)) writeFileSync(this.databasePath, new Uint8Array());
@@ -527,6 +646,9 @@ export class MakaseruStore {
     const file = readFileSync(this.databasePath);
     const db = file.length > 0 ? new SQL.Database(file) : new SQL.Database();
     try {
+      const version = databaseSchemaVersion(db);
+      if (version > SCHEMA_VERSION) throw new Error(`SCHEMA_VERSION_UNSUPPORTED: ${version}`);
+      if (version === 0) db.run(`PRAGMA user_version = ${SCHEMA_VERSION}`);
       db.run("CREATE TABLE IF NOT EXISTS tasks(task_id TEXT PRIMARY KEY, workspace_hash TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)");
       const result = await operation(db);
       const bytes = db.export();
@@ -537,6 +659,7 @@ export class MakaseruStore {
       } finally {
         rmSync(temporaryPath, { force: true });
       }
+      this.writeWorkspaceStatus(db);
       return result;
     } finally {
       db.close();

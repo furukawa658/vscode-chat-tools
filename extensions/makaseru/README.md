@@ -17,6 +17,14 @@ Makaseru gives Copilot Chat a Model Context Protocol server for bounded subagent
 
 The parent must keep `parentSecret` private. Pass only `childHandoffPrompt` to the child agent. Completion with unverified assumptions moves to `NEEDS_PARENT_REVIEW` instead of completing automatically.
 
+## Resources
+
+- `makaseru://tasks/{taskId}/contract?handoffToken=...`
+- `makaseru://tasks/{taskId}/state?handoffToken=...`
+- `makaseru://board/active?parentSessionId=...&parentSecret=...`
+
+Task resources expose only the child-visible contract and state. The parent board expands waiting and review tasks while keeping completed tasks compact. Resource responses never include `parentSecret` or `handoffToken`.
+
 ## Verification
 
 Makaseru stores state in a SQLite-compatible database with cross-process file locking. It checks:
@@ -28,4 +36,10 @@ Makaseru stores state in a SQLite-compatible database with cross-process file lo
 - file and line references;
 - optional file-content and command-exit gates.
 
-Verification commands are restricted by the `makaseru.allowedCommands` setting.
+Verification commands are restricted by the `makaseru.allowedCommands` setting. Makaseru runs objective verification outside the database lock and rejects stale completion results when task state changes during verification.
+
+## Status and storage
+
+The status bar shows the number of tasks waiting for the parent, waiting for review, and escalated. Makaseru publishes these counts to a secret-free status file and refreshes the display periodically.
+
+Each workspace receives a distinct MCP server definition and SQLite-compatible database, keyed by the resolved workspace path. Databases use schema version checks so existing 0.1.0 state can migrate, while unknown future versions stop without modifying the database.
