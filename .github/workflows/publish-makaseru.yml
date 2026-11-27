@@ -1,0 +1,42 @@
+name: Publish Makaseru MCP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: marketplace
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Type-check
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test tests
+
+      - name: Build extensions
+        run: CI=false bun run build
+
+      - name: Package Makaseru
+        working-directory: extensions/makaseru
+        run: npx vsce package --no-dependencies --skip-license --out makaseru-mcp.vsix
+
+      - name: Publish Makaseru
+        working-directory: extensions/makaseru
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx vsce publish --no-dependencies --skip-license --packagePath makaseru-mcp.vsix
