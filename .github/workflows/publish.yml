@@ -12,6 +12,7 @@ on:
           - tsugi
           - ne-memory
           - eien
+          - makaseru
           - pack
 jobs:
   publish:
@@ -23,8 +24,8 @@ jobs:
         with:
           version: 0.15.2
       - run: bun install --frozen-lockfile
-      - run: bun test
       - run: bun run build
+      - run: bun test
       # pack は依存先の公開後でないと失敗するため最後に公開する
       - name: Publish
         env:
@@ -32,7 +33,7 @@ jobs:
           TARGET_EXTENSION: ${{ inputs.extension }}
         run: |
           if [ "$TARGET_EXTENSION" = "all" ]; then
-            targets="tsugi ne-memory eien pack"
+            targets="tsugi ne-memory eien makaseru pack"
           else
             targets="$TARGET_EXTENSION"
           fi
