@@ -13,6 +13,12 @@ function parseText<T>(result: Awaited<ReturnType<Client["callTool"]>>): T {
   return JSON.parse(content.text) as T;
 }
 
+function parseResource<T>(result: Awaited<ReturnType<Client["readResource"]>>): T {
+  const content = result.contents[0];
+  if (!content || !("text" in content)) throw new Error("Expected text MCP resource response");
+  return JSON.parse(content.text) as T;
+}
+
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
@@ -39,6 +45,17 @@ describe("Makaseru MCP stdio server", () => {
     try {
       await client.connect(transport);
       const tools = await client.listTools();
+      const resourceTemplates = await client.listResourceTemplates();
+      expect(resourceTemplates.resourceTemplates.map((resource) => resource.name).sort()).toEqual([
+        "makaseru-active-board",
+        "makaseru-task-contract",
+        "makaseru-task-state",
+      ]);
+      expect(resourceTemplates.resourceTemplates.map((resource) => resource.uriTemplate).sort()).toEqual([
+        "makaseru://board/active{?parentSessionId,parentSecret}",
+        "makaseru://tasks/{taskId}/contract{?handoffToken}",
+        "makaseru://tasks/{taskId}/state{?handoffToken}",
+      ]);
       expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
         "makaseru_accept_subtask",
         "makaseru_answer_question",
@@ -79,6 +96,19 @@ describe("Makaseru MCP stdio server", () => {
       expect(brief.forbiddenAssumptions).toEqual(["Do not infer completion from file existence"]);
       expect("parentSecret" in brief).toBe(false);
       expect("handoffToken" in brief).toBe(false);
+
+      const contract = parseResource<Record<string, unknown>>(await client.readResource({
+        uri: `makaseru://tasks/${dispatched.taskId}/contract?handoffToken=${dispatched.handoffToken}`,
+      }));
+      const state = parseResource<Record<string, unknown>>(await client.readResource({
+        uri: `makaseru://tasks/${dispatched.taskId}/state?handoffToken=${dispatched.handoffToken}`,
+      }));
+      expect(contract.singleGoal).toBe("Add the completed marker");
+      expect(state.status).toBe("IN_PROGRESS");
+      expect(JSON.stringify(contract)).not.toContain(dispatched.parentSecret);
+      expect(JSON.stringify(contract)).not.toContain(dispatched.handoffToken);
+      expect(JSON.stringify(state)).not.toContain(dispatched.parentSecret);
+      expect(JSON.stringify(state)).not.toContain(dispatched.handoffToken);
       writeFileSync(join(workspace, "src", "target.ts"), "COMPLETE\n", "utf8");
 
       const completed = parseText<{ status: string; reasons: string[] }>(await client.callTool({
@@ -102,6 +132,47 @@ describe("Makaseru MCP stdio server", () => {
       }));
       expect(report.status).toBe("COMPLETED");
       expect(report.report.summary).toBe("Added COMPLETE to src/target.ts");
+
+      const waiting = parseText<{ taskId: string; handoffToken: string; parentSecret: string }>(await client.callTool({
+        name: "makaseru_dispatch_subtask",
+        arguments: {
+          parentSessionId: "parent-mcp-test",
+          kind: "INSPECT",
+          goal: "Clarify the next marker",
+          constraints: [],
+          allowedScope: [],
+          criteria: [{ id: "C2", description: "The next marker is clarified" }],
+          contextRefs: [],
+          dependsOn: [],
+          maxAttempts: 1,
+          maxQuestions: 1,
+        },
+      }));
+      await client.callTool({
+        name: "makaseru_ask_parent",
+        arguments: {
+          taskId: waiting.taskId,
+          handoffToken: waiting.handoffToken,
+          category: "MISSING_CONTEXT",
+          question: "Which marker is next?",
+          options: ["REVIEWED", "PUBLISHED"],
+        },
+      });
+      const board = parseResource<{
+        waitingParent: Array<{ taskId: string; questions: Array<{ question: string }> }>;
+        completed: Array<{ taskId: string; status: string }>;
+      }>(await client.readResource({
+        uri: `makaseru://board/active?parentSessionId=parent-mcp-test&parentSecret=${dispatched.parentSecret}`,
+      }));
+      expect(board.completed).toEqual([{ taskId: dispatched.taskId, goal: "Add the completed marker", status: "COMPLETED" }]);
+      expect(board.waitingParent).toEqual(expect.arrayContaining([
+        expect.objectContaining({ taskId: waiting.taskId, questions: [expect.objectContaining({ question: "Which marker is next?" })] }),
+      ]));
+      const boardText = JSON.stringify(board);
+      expect(boardText).not.toContain(dispatched.parentSecret);
+      expect(boardText).not.toContain(dispatched.handoffToken);
+      expect(boardText).not.toContain(waiting.parentSecret);
+      expect(boardText).not.toContain(waiting.handoffToken);
     } finally {
       await client.close();
     }

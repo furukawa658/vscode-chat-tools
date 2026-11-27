@@ -124,6 +124,25 @@ export interface CompletionResult {
   reasons: string[];
 }
 
+export interface TaskStateResource {
+  taskId: string;
+  kind: TaskKind;
+  status: TaskStatus;
+  attemptCount: number;
+  remainingAttempts: number;
+  updatedAt: string;
+  openQuestions: Question[];
+}
+
+export interface ActiveBoardResource {
+  created: Array<{ taskId: string; goal: string; status: TaskStatus }>;
+  inProgress: Array<{ taskId: string; goal: string; status: TaskStatus }>;
+  waitingParent: Array<{ taskId: string; goal: string; status: TaskStatus; updatedAt: string; questions: Question[] }>;
+  needsParentReview: Array<{ taskId: string; goal: string; status: TaskStatus; updatedAt: string; summary: string; assumptions: string[] }>;
+  completed: Array<{ taskId: string; goal: string; status: TaskStatus }>;
+  escalated: Array<{ taskId: string; goal: string; status: TaskStatus; reason?: string }>;
+}
+
 function normalizePath(path: string): string {
   return path.replaceAll("\\", "/").replace(/^\.\//, "");
 }
@@ -251,25 +270,60 @@ export class MakaseruStore {
         task.updatedAt = new Date().toISOString();
         this.writeTask(db, task);
       }
+      return this.buildTaskBrief(db, task);
+    });
+  }
+
+  async readContractResource(taskId: string, handoffToken: string): Promise<TaskBrief> {
+    return this.withDb((db) => {
+      const task = this.requireChildTask(db, taskId, handoffToken);
+      return this.buildTaskBrief(db, task);
+    });
+  }
+
+  async readStateResource(taskId: string, handoffToken: string): Promise<TaskStateResource> {
+    return this.withDb((db) => {
+      const task = this.requireChildTask(db, taskId, handoffToken);
       return {
         taskId: task.taskId,
         kind: task.kind,
-        singleGoal: task.goal,
-        inheritedFacts: task.dependsOn.flatMap((id) => {
-          const prerequisite = this.readTask(db, id);
-          const facts = prerequisite?.finalReport?.facts;
-          return Array.isArray(facts) ? facts.map((fact: Fact) => `${id}: ${fact.statement}`) : [];
-        }),
-        doNot: task.constraints,
-        allowedScope: task.allowedScope,
-        checklistToComplete: task.criteria,
-        verificationGates: task.verificationGates ?? [],
-        groundTruth: task.groundTruth ?? [],
-        knownSymbols: task.knownSymbols ?? [],
-        forbiddenAssumptions: task.forbiddenAssumptions ?? [],
-        contextRefs: task.contextRefs,
+        status: task.status,
+        attemptCount: task.attemptCount,
         remainingAttempts: Math.max(0, task.maxAttempts - task.attemptCount),
-        questions: task.questions,
+        updatedAt: task.updatedAt,
+        openQuestions: task.questions.filter((question) => question.status === "OPEN"),
+      };
+    });
+  }
+
+  async readActiveBoardResource(parentSessionId: string, parentSecret: string): Promise<ActiveBoardResource> {
+    return this.withDb((db) => {
+      const matchingWorkspace = this.allTasks(db).filter((task) => task.workspaceHash === this.workspaceHash);
+      const authorized = matchingWorkspace.some((task) => task.parentSessionId === parentSessionId && task.parentSecret === parentSecret);
+      if (!authorized) throw new Error("PARENT_IDENTITY_MISMATCH");
+      const tasks = matchingWorkspace.filter((task) => task.parentSessionId === parentSessionId);
+      const summary = (task: TaskRecord) => ({ taskId: task.taskId, goal: task.goal, status: task.status });
+      return {
+        created: tasks.filter((task) => task.status === "CREATED").map(summary),
+        inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").map(summary),
+        waitingParent: tasks.filter((task) => task.status === "WAITING_PARENT").map((task) => ({
+          ...summary(task),
+          updatedAt: task.updatedAt,
+          questions: task.questions.filter((question) => question.status === "OPEN"),
+        })),
+        needsParentReview: tasks.filter((task) => task.status === "NEEDS_PARENT_REVIEW").map((task) => ({
+          ...summary(task),
+          updatedAt: task.updatedAt,
+          summary: typeof task.finalReport?.summary === "string" ? task.finalReport.summary : "",
+          assumptions: Array.isArray(task.finalReport?.assumptions)
+            ? task.finalReport.assumptions.filter((assumption): assumption is string => typeof assumption === "string")
+            : [],
+        })),
+        completed: tasks.filter((task) => task.status === "COMPLETED").map(summary),
+        escalated: tasks.filter((task) => task.status === "ESCALATED").map((task) => ({
+          ...summary(task),
+          reason: task.escalationReason,
+        })),
       };
     });
   }
@@ -389,6 +443,29 @@ export class MakaseruStore {
       if (tasks.length === 0) throw new Error("PARENT_IDENTITY_MISMATCH");
       return tasks.slice(-30).map((task) => `${task.taskId}\t${task.status}\t${task.goal}`).join("\n");
     });
+  }
+
+  private buildTaskBrief(db: Database, task: TaskRecord): TaskBrief {
+    return {
+      taskId: task.taskId,
+      kind: task.kind,
+      singleGoal: task.goal,
+      inheritedFacts: task.dependsOn.flatMap((id) => {
+        const prerequisite = this.readTask(db, id);
+        const facts = prerequisite?.finalReport?.facts;
+        return Array.isArray(facts) ? facts.map((fact: Fact) => `${id}: ${fact.statement}`) : [];
+      }),
+      doNot: task.constraints,
+      allowedScope: task.allowedScope,
+      checklistToComplete: task.criteria,
+      verificationGates: task.verificationGates ?? [],
+      groundTruth: task.groundTruth ?? [],
+      knownSymbols: task.knownSymbols ?? [],
+      forbiddenAssumptions: task.forbiddenAssumptions ?? [],
+      contextRefs: task.contextRefs,
+      remainingAttempts: Math.max(0, task.maxAttempts - task.attemptCount),
+      questions: task.questions,
+    };
   }
 
   private validateSubmission(task: TaskRecord, input: CompleteInput): string[] {

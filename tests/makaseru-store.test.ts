@@ -81,6 +81,102 @@ describe("MakaseruStore", () => {
     expect("handoffToken" in brief).toBe(false);
   });
 
+  test("reads secret-free task resources and expanded active board entries", async () => {
+    const store = await createStore();
+    const workspace = (store as unknown as { workspaceRoot: string }).workspaceRoot;
+    writeFileSync(join(workspace, "review.txt"), "reviewed\n", "utf8");
+    const completed = await store.dispatch({
+      parentSessionId: "parent-resources",
+      kind: "INSPECT",
+      goal: "Completed inspection",
+      constraints: [],
+      allowedScope: [],
+      criteria: [{ id: "C1", description: "Inspection completed" }],
+      contextRefs: [],
+      dependsOn: [],
+      maxAttempts: 1,
+      maxQuestions: 1,
+      groundTruth: ["The approved contract is fixed"],
+    });
+    await store.accept(completed.taskId, completed.handoffToken);
+    await store.complete({
+      taskId: completed.taskId,
+      handoffToken: completed.handoffToken,
+      summary: "Inspection completed",
+      modifiedFiles: [],
+      facts: [{ statement: "Contract was inspected", reference: "review.txt:1" }],
+      assumptions: [],
+      criteria: [{ criterionId: "C1", passed: true, evidence: "review.txt contains the reviewed contract" }],
+    });
+
+    const waiting = await store.dispatch({
+      parentSessionId: "parent-resources",
+      kind: "INSPECT",
+      goal: "Clarify the contract",
+      constraints: [],
+      allowedScope: [],
+      criteria: [{ id: "C1", description: "Contract clarified" }],
+      contextRefs: [],
+      dependsOn: [],
+      maxAttempts: 1,
+      maxQuestions: 1,
+    });
+    await store.askParent(waiting.taskId, waiting.handoffToken, "AMBIGUOUS_SPEC", "Which contract?", ["Current", "Previous"]);
+
+    const review = await store.dispatch({
+      parentSessionId: "parent-resources",
+      kind: "INSPECT",
+      goal: "Confirm an assumption",
+      constraints: [],
+      allowedScope: [],
+      criteria: [{ id: "C1", description: "Assumption is surfaced" }],
+      contextRefs: [],
+      dependsOn: [],
+      maxAttempts: 1,
+      maxQuestions: 1,
+    });
+    await store.accept(review.taskId, review.handoffToken);
+    await store.complete({
+      taskId: review.taskId,
+      handoffToken: review.handoffToken,
+      summary: "Assumption requires approval",
+      modifiedFiles: [],
+      facts: [{ statement: "Review source exists", reference: "review.txt:1" }],
+      assumptions: ["The new contract is already effective"],
+      criteria: [{ criterionId: "C1", passed: true, evidence: "review.txt confirms the source exists" }],
+    });
+
+    const contract = await store.readContractResource(waiting.taskId, waiting.handoffToken);
+    expect(contract.singleGoal).toBe("Clarify the contract");
+    expect("parentSecret" in contract).toBe(false);
+    expect("handoffToken" in contract).toBe(false);
+    await expect(store.readContractResource(waiting.taskId, "bad-token")).rejects.toThrow("IDENTITY_MISMATCH");
+
+    const state = await store.readStateResource(waiting.taskId, waiting.handoffToken);
+    expect(state.status).toBe("WAITING_PARENT");
+    expect(state.openQuestions).toHaveLength(1);
+    expect("parentSecret" in state).toBe(false);
+    expect("handoffToken" in state).toBe(false);
+
+    const board = await store.readActiveBoardResource("parent-resources", completed.parentSecret);
+    expect(board.completed).toEqual([{ taskId: completed.taskId, goal: "Completed inspection", status: "COMPLETED" }]);
+    expect(board.waitingParent).toEqual(expect.arrayContaining([
+      expect.objectContaining({ taskId: waiting.taskId, goal: "Clarify the contract", questions: [expect.objectContaining({ question: "Which contract?" })] }),
+    ]));
+    expect(board.needsParentReview).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        taskId: review.taskId,
+        summary: "Assumption requires approval",
+        assumptions: ["The new contract is already effective"],
+      }),
+    ]));
+    await expect(store.readActiveBoardResource("parent-resources", "bad-secret")).rejects.toThrow("PARENT_IDENTITY_MISMATCH");
+    expect(JSON.stringify(board)).not.toContain(completed.parentSecret);
+    expect(JSON.stringify(board)).not.toContain(completed.handoffToken);
+    expect(JSON.stringify(board)).not.toContain(waiting.parentSecret);
+    expect(JSON.stringify(board)).not.toContain(waiting.handoffToken);
+  });
+
   test("allows other store operations while two verifications are running", async () => {
     const store = await createStore();
     const workspace = (store as unknown as { workspaceRoot: string }).workspaceRoot;

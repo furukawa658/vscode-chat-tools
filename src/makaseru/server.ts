@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { MakaseruStore } from "./store";
@@ -13,6 +13,8 @@ const databasePath = argumentValue("--db", process.env.MAKASERU_DB_PATH ?? `${wo
 const store = new MakaseruStore(databasePath, workspaceRoot);
 const server = new McpServer({ name: "makaseru-mcp", version: "0.1.0" });
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] });
+const resourceText = (uri: URL, value: unknown) => ({ contents: [{ uri: uri.toString(), mimeType: "application/json", text: JSON.stringify(value) }] });
+const variable = (value: string | string[]) => decodeURIComponent(Array.isArray(value) ? value[0] : value);
 
 const criterionSchema = z.object({ id: z.string().min(1), description: z.string().min(1) });
 const verificationGateSchema = z.object({
@@ -24,6 +26,25 @@ const verificationGateSchema = z.object({
   needle: z.string().optional(),
   mustExist: z.boolean().optional(),
 });
+
+server.registerResource(
+  "makaseru-task-contract",
+  new ResourceTemplate("makaseru://tasks/{taskId}/contract{?handoffToken}", { list: undefined }),
+  { title: "Makaseru task contract", description: "Read the secret-free contract for one task using its handoff token.", mimeType: "application/json" },
+  async (uri, variables) => resourceText(uri, await store.readContractResource(variable(variables.taskId), variable(variables.handoffToken))),
+);
+server.registerResource(
+  "makaseru-task-state",
+  new ResourceTemplate("makaseru://tasks/{taskId}/state{?handoffToken}", { list: undefined }),
+  { title: "Makaseru task state", description: "Read the secret-free state and open questions for one task using its handoff token.", mimeType: "application/json" },
+  async (uri, variables) => resourceText(uri, await store.readStateResource(variable(variables.taskId), variable(variables.handoffToken))),
+);
+server.registerResource(
+  "makaseru-active-board",
+  new ResourceTemplate("makaseru://board/active{?parentSessionId,parentSecret}", { list: undefined }),
+  { title: "Makaseru active board", description: "Read the secret-free active board for one authenticated parent session.", mimeType: "application/json" },
+  async (uri, variables) => resourceText(uri, await store.readActiveBoardResource(variable(variables.parentSessionId), variable(variables.parentSecret))),
+);
 
 server.registerTool("makaseru_dispatch_subtask", {
   title: "Register a bounded subtask",
