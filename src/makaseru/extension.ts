@@ -32,7 +32,7 @@ export function activate(ctx: vscode.ExtensionContext) {
         process.execPath,
         [serverPath, "--workspace", workspaceRoot, "--db", databasePath],
         { ELECTRON_RUN_AS_NODE: "1", MAKASERU_ALLOWED_CMDS: allowedCommands, MAKASERU_SQL_WASM_PATH: wasmPath },
-        "0.2.0",
+        "0.2.1",
       ));
     },
   };

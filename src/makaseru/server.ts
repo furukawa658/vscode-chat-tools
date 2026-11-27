@@ -11,7 +11,7 @@ function argumentValue(name: string, fallback: string): string {
 const workspaceRoot = argumentValue("--workspace", process.cwd());
 const databasePath = argumentValue("--db", process.env.MAKASERU_DB_PATH ?? `${workspaceRoot}/.makaseru/state.sqlite`);
 const store = new MakaseruStore(databasePath, workspaceRoot);
-const server = new McpServer({ name: "makaseru-mcp", version: "0.2.0" });
+const server = new McpServer({ name: "makaseru-mcp", version: "0.2.1" });
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] });
 const resourceText = (uri: URL, value: unknown) => ({ contents: [{ uri: uri.toString(), mimeType: "application/json", text: JSON.stringify(value) }] });
 const variable = (value: string | string[]) => decodeURIComponent(Array.isArray(value) ? value[0] : value);

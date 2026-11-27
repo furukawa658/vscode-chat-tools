@@ -2,6 +2,8 @@
 
 **Task Handoff & Verification for lightweight agents**
 
+![Makaseru delegates, pauses, and verifies a bounded task](makaseru-workflow.gif)
+
 Makaseru gives Copilot Chat a Model Context Protocol server for bounded subagent work. A parent registers one small task, a child accepts it, asks the parent instead of guessing, and submits evidence for Makaseru to verify against allowed paths, Git state, file references, and optional command gates.
 
 ## Tools
