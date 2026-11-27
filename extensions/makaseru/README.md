@@ -2,20 +2,20 @@
 
 **Task Handoff & Verification for lightweight agents**
 
-![Makaseru delegates, pauses, and verifies a bounded task](makaseru-workflow.gif)
+![Makaseru delegates, pauses, and verifies a bounded task](https://raw.githubusercontent.com/furukawa658/vscode-chat-tools/HEAD/extensions/makaseru/makaseru-workflow.gif)
 
 Makaseru gives Copilot Chat a Model Context Protocol server for bounded subagent work. A parent registers one small task, a child accepts it, asks the parent instead of guessing, and submits evidence for Makaseru to verify against allowed paths, Git state, file references, and optional command gates.
 
 ## Tools
 
-- `makaseru_dispatch_subtask`
-- `makaseru_accept_subtask`
-- `makaseru_ask_parent`
-- `makaseru_answer_question`
-- `makaseru_complete_subtask`
-- `makaseru_review_completion`
-- `makaseru_collect_report`
-- `makaseru_list_tasks`
+- `makaseru_dispatch_subtask`: Register one bounded task with acceptance criteria and allowed scope.
+- `makaseru_accept_subtask`: Accept the handoff and return the first execution step.
+- `makaseru_ask_parent`: Ask a concrete question when the child is blocked or must choose between options.
+- `makaseru_answer_question`: Answer an open question and resume the delegated task.
+- `makaseru_complete_subtask`: Submit changed files, evidence, assumptions, and criterion results.
+- `makaseru_review_completion`: Review the submitted result and verify whether it satisfies the objective gates.
+- `makaseru_collect_report`: Return the verified task state, open questions, and final report.
+- `makaseru_list_tasks`: Return the active task list and current handoff state.
 
 The parent must keep `parentSecret` private. Pass only `childHandoffPrompt` to the child agent. Completion with unverified assumptions moves to `NEEDS_PARENT_REVIEW` instead of completing automatically.
 
