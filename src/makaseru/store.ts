@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import initSqlJs, { Database } from "sql.js";
 import lockfile from "proper-lockfile";
+import { SCHEMA_VERSION, statusPath, type WorkspaceStatus } from "./status";
 
 const execFileAsync = promisify(execFile);
 const statuses = ["CREATED", "IN_PROGRESS", "WAITING_PARENT", "NEEDS_PARENT_REVIEW", "COMPLETED", "ESCALATED"] as const;
@@ -187,6 +188,10 @@ function resolveInside(root: string, path: string): string {
 
 function sha256(content: Uint8Array | string): string {
   return createHash("sha256").update(content).digest("hex");
+}
+
+function databaseSchemaVersion(db: Database): number {
+  return Number(db.exec("PRAGMA user_version")[0]?.values[0]?.[0] ?? 0);
 }
 
 let sqlPromise: ReturnType<typeof initSqlJs> | undefined;
@@ -608,6 +613,31 @@ export class MakaseruStore {
     statement.free();
   }
 
+  private writeWorkspaceStatus(db: Database) {
+    const tasks = this.allTasks(db).filter((task) => task.workspaceHash === this.workspaceHash);
+    const count = (status: TaskStatus) => tasks.filter((task) => task.status === status).length;
+    const status: WorkspaceStatus = {
+      schemaVersion: SCHEMA_VERSION,
+      workspaceHash: this.workspaceHash,
+      workspaceRoot: this.workspaceRoot,
+      created: count("CREATED"),
+      inProgress: count("IN_PROGRESS"),
+      waitingParent: count("WAITING_PARENT"),
+      needsParentReview: count("NEEDS_PARENT_REVIEW"),
+      completed: count("COMPLETED"),
+      escalated: count("ESCALATED"),
+      updatedAt: new Date().toISOString(),
+    };
+    const finalPath = statusPath(this.databasePath);
+    const temporaryPath = `${finalPath}.${process.pid}.${randomBytes(3).toString("hex")}.tmp`;
+    try {
+      writeFileSync(temporaryPath, JSON.stringify(status));
+      renameSync(temporaryPath, finalPath);
+    } finally {
+      rmSync(temporaryPath, { force: true });
+    }
+  }
+
   private async withDb<T>(operation: (db: Database) => Promise<T> | T): Promise<T> {
     mkdirSync(dirname(this.databasePath), { recursive: true });
     if (!existsSync(this.databasePath)) writeFileSync(this.databasePath, new Uint8Array());
@@ -616,6 +646,9 @@ export class MakaseruStore {
     const file = readFileSync(this.databasePath);
     const db = file.length > 0 ? new SQL.Database(file) : new SQL.Database();
     try {
+      const version = databaseSchemaVersion(db);
+      if (version > SCHEMA_VERSION) throw new Error(`SCHEMA_VERSION_UNSUPPORTED: ${version}`);
+      if (version === 0) db.run(`PRAGMA user_version = ${SCHEMA_VERSION}`);
       db.run("CREATE TABLE IF NOT EXISTS tasks(task_id TEXT PRIMARY KEY, workspace_hash TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)");
       const result = await operation(db);
       const bytes = db.export();
@@ -626,6 +659,7 @@ export class MakaseruStore {
       } finally {
         rmSync(temporaryPath, { force: true });
       }
+      this.writeWorkspaceStatus(db);
       return result;
     } finally {
       db.close();
