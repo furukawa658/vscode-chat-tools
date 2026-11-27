@@ -38,6 +38,9 @@ export interface DispatchInput {
   maxAttempts: number;
   maxQuestions: number;
   verificationGates?: VerificationGate[];
+  groundTruth?: string[];
+  knownSymbols?: string[];
+  forbiddenAssumptions?: string[];
 }
 
 export interface Fact {
@@ -106,6 +109,9 @@ export interface TaskBrief {
   allowedScope: string[];
   checklistToComplete: Criterion[];
   verificationGates: VerificationGate[];
+  groundTruth: string[];
+  knownSymbols: string[];
+  forbiddenAssumptions: string[];
   contextRefs: string[];
   remainingAttempts: number;
   questions: Question[];
@@ -195,6 +201,9 @@ export class MakaseruStore {
     const task: TaskRecord = {
       ...input,
       verificationGates: input.verificationGates ?? [],
+      groundTruth: input.groundTruth ?? [],
+      knownSymbols: input.knownSymbols ?? [],
+      forbiddenAssumptions: input.forbiddenAssumptions ?? [],
       taskId,
       workspaceHash: this.workspaceHash,
       handoffToken,
@@ -255,6 +264,9 @@ export class MakaseruStore {
         allowedScope: task.allowedScope,
         checklistToComplete: task.criteria,
         verificationGates: task.verificationGates ?? [],
+        groundTruth: task.groundTruth ?? [],
+        knownSymbols: task.knownSymbols ?? [],
+        forbiddenAssumptions: task.forbiddenAssumptions ?? [],
         contextRefs: task.contextRefs,
         remainingAttempts: Math.max(0, task.maxAttempts - task.attemptCount),
         questions: task.questions,
@@ -298,26 +310,26 @@ export class MakaseruStore {
     const taskBefore = await this.withDb((db) => this.requireChildTask(db, input.taskId, input.handoffToken));
     if (!["IN_PROGRESS", "CREATED"].includes(taskBefore.status)) throw new Error(`TASK_STATUS_ERROR: ${taskBefore.status}`);
 
-    return this.withDb(async (db) => {
+    const reasons = this.validateSubmission(taskBefore, input);
+    const currentSnapshot = await this.captureWorkspaceSnapshot(taskBefore.allowedScope);
+    const actualChanges = this.changedPaths(taskBefore.baseline, currentSnapshot);
+    for (const changed of actualChanges) {
+      const full = resolve(this.workspaceRoot, changed);
+      if (existsSync(full)) {
+        try { resolveInside(this.workspaceRoot, changed); }
+        catch { reasons.push(`SYMLINK_ESCAPE: ${changed}`); }
+      }
+    }
+    if (taskBefore.kind === "INSPECT" && actualChanges.length > 0) reasons.push(`GIT_READONLY_VIOLATION: ${actualChanges.join(", ")}`);
+    const reported = new Set(input.modifiedFiles.map(normalizePath));
+    for (const changed of actualChanges) if (!reported.has(changed)) reasons.push(`UNREPORTED_CHANGE: ${changed}`);
+    for (const changed of actualChanges) if (!matchesScope(changed, taskBefore.allowedScope)) reasons.push(`SCOPE_VIOLATION: ${changed}`);
+    if ((taskBefore.kind === "EDIT" || taskBefore.kind === "DRAFT") && actualChanges.length === 0) reasons.push("GATE_NO_ACTUAL_CHANGE");
+    if (reasons.length === 0) reasons.push(...await this.runVerificationGates(taskBefore.verificationGates ?? [], actualChanges.length > 0));
+
+    return this.withDb((db) => {
       const task = this.requireChildTask(db, input.taskId, input.handoffToken);
       if (task.status !== taskBefore.status || task.attemptCount !== taskBefore.attemptCount || task.updatedAt !== taskBefore.updatedAt) throw new Error("TASK_CHANGED_DURING_VERIFICATION");
-      const reasons = this.validateSubmission(task, input);
-      const currentSnapshot = await this.captureWorkspaceSnapshot(task.allowedScope);
-      const actualChanges = this.changedPaths(task.baseline, currentSnapshot);
-      for (const changed of actualChanges) {
-        const full = resolve(this.workspaceRoot, changed);
-        if (existsSync(full)) {
-          try { resolveInside(this.workspaceRoot, changed); }
-          catch { reasons.push(`SYMLINK_ESCAPE: ${changed}`); }
-        }
-      }
-      if (task.kind === "INSPECT" && actualChanges.length > 0) reasons.push(`GIT_READONLY_VIOLATION: ${actualChanges.join(", ")}`);
-      const reported = new Set(input.modifiedFiles.map(normalizePath));
-      for (const changed of actualChanges) if (!reported.has(changed)) reasons.push(`UNREPORTED_CHANGE: ${changed}`);
-      for (const changed of actualChanges) if (!matchesScope(changed, task.allowedScope)) reasons.push(`SCOPE_VIOLATION: ${changed}`);
-      if ((task.kind === "EDIT" || task.kind === "DRAFT") && actualChanges.length === 0) reasons.push("GATE_NO_ACTUAL_CHANGE");
-      if (reasons.length === 0) reasons.push(...await this.runVerificationGates(task.verificationGates ?? [], actualChanges.length > 0));
-
       task.attemptCount += 1;
       task.updatedAt = new Date().toISOString();
       if (reasons.length > 0) {
@@ -338,15 +350,15 @@ export class MakaseruStore {
   async review(taskId: string, parentSecret: string, approve: boolean, reason?: string) {
     const taskBefore = await this.withDb((db) => this.requireParentTask(db, taskId, parentSecret));
     if (taskBefore.status !== "NEEDS_PARENT_REVIEW") throw new Error(`TASK_STATUS_ERROR: ${taskBefore.status}`);
-    return this.withDb(async (db) => {
+    if (approve) {
+      const currentSnapshot = await this.captureWorkspaceSnapshot(taskBefore.allowedScope);
+      const actualChange = this.changedPaths(taskBefore.baseline, currentSnapshot).length > 0;
+      const gateReasons = await this.runVerificationGates(taskBefore.verificationGates ?? [], actualChange);
+      if (gateReasons.length > 0) throw new Error(`REVIEW_VERIFICATION_FAILED: ${gateReasons.join(" | ")}`);
+    }
+    return this.withDb((db) => {
       const task = this.requireParentTask(db, taskId, parentSecret);
-      if (task.status !== taskBefore.status || task.updatedAt !== taskBefore.updatedAt) throw new Error("TASK_CHANGED_DURING_REVIEW");
-      if (approve) {
-        const currentSnapshot = await this.captureWorkspaceSnapshot(task.allowedScope);
-        const actualChange = this.changedPaths(task.baseline, currentSnapshot).length > 0;
-        const gateReasons = await this.runVerificationGates(task.verificationGates ?? [], actualChange);
-        if (gateReasons.length > 0) throw new Error(`REVIEW_VERIFICATION_FAILED: ${gateReasons.join(" | ")}`);
-      }
+      if (task.status !== taskBefore.status || task.attemptCount !== taskBefore.attemptCount || task.updatedAt !== taskBefore.updatedAt) throw new Error("TASK_CHANGED_DURING_REVIEW");
       task.status = approve ? "COMPLETED" : "IN_PROGRESS";
       task.updatedAt = new Date().toISOString();
       if (!approve) task.constraints.push(`Parent rejected assumptions: ${reason?.trim() || "revise and resubmit"}`);

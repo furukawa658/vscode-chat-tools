@@ -40,6 +40,9 @@ server.registerTool("makaseru_dispatch_subtask", {
     maxAttempts: z.number().int().min(1).max(5).default(2),
     maxQuestions: z.number().int().min(0).max(5).default(2),
     verificationGates: z.array(verificationGateSchema).default([]),
+    groundTruth: z.array(z.string().min(1)).default([]),
+    knownSymbols: z.array(z.string().min(1)).default([]),
+    forbiddenAssumptions: z.array(z.string().min(1)).default([]),
   },
 }, async (input) => text(await store.dispatch(input)));
 

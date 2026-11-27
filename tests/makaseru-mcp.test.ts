@@ -64,10 +64,21 @@ describe("Makaseru MCP stdio server", () => {
           maxAttempts: 2,
           maxQuestions: 1,
           verificationGates: [{ type: "content_contains", path: "src/target.ts", needle: "COMPLETE", mustExist: true }],
+          groundTruth: ["The marker must be COMPLETE"],
+          knownSymbols: ["MakaseruStore.complete"],
+          forbiddenAssumptions: ["Do not infer completion from file existence"],
         },
       }));
 
-      await client.callTool({ name: "makaseru_accept_subtask", arguments: { taskId: dispatched.taskId, handoffToken: dispatched.handoffToken } });
+      const brief = parseText<Record<string, unknown>>(await client.callTool({
+        name: "makaseru_accept_subtask",
+        arguments: { taskId: dispatched.taskId, handoffToken: dispatched.handoffToken },
+      }));
+      expect(brief.groundTruth).toEqual(["The marker must be COMPLETE"]);
+      expect(brief.knownSymbols).toEqual(["MakaseruStore.complete"]);
+      expect(brief.forbiddenAssumptions).toEqual(["Do not infer completion from file existence"]);
+      expect("parentSecret" in brief).toBe(false);
+      expect("handoffToken" in brief).toBe(false);
       writeFileSync(join(workspace, "src", "target.ts"), "COMPLETE\n", "utf8");
 
       const completed = parseText<{ status: string; reasons: string[] }>(await client.callTool({

@@ -54,6 +54,206 @@ describe("MakaseruStore", () => {
     expect(result.status).toBe("COMPLETED");
   });
 
+  test("passes workspace ground truth to the child without parent secrets", async () => {
+    const store = await createStore();
+    const dispatched = await store.dispatch({
+      parentSessionId: "parent-ground-truth",
+      kind: "INSPECT",
+      goal: "Inspect the approved contract",
+      constraints: [],
+      allowedScope: [],
+      criteria: [{ id: "C1", description: "The contract is inspected" }],
+      contextRefs: [],
+      dependsOn: [],
+      maxAttempts: 1,
+      maxQuestions: 1,
+      groundTruth: ["The endpoint returns 412 on stale ETags"],
+      knownSymbols: ["MakaseruStore.complete"],
+      forbiddenAssumptions: ["Do not assume retries are idempotent"],
+    });
+
+    const brief = await store.accept(dispatched.taskId, dispatched.handoffToken);
+
+    expect(brief.groundTruth).toEqual(["The endpoint returns 412 on stale ETags"]);
+    expect(brief.knownSymbols).toEqual(["MakaseruStore.complete"]);
+    expect(brief.forbiddenAssumptions).toEqual(["Do not assume retries are idempotent"]);
+    expect("parentSecret" in brief).toBe(false);
+    expect("handoffToken" in brief).toBe(false);
+  });
+
+  test("allows other store operations while two verifications are running", async () => {
+    const store = await createStore();
+    const workspace = (store as unknown as { workspaceRoot: string }).workspaceRoot;
+    const dispatchedTasks = await Promise.all(["first.txt", "second.txt"].map(async (path) => {
+      writeFileSync(join(workspace, path), "initial\n", "utf8");
+      const dispatched = await store.dispatch({
+        parentSessionId: "parent-concurrent",
+        kind: "EDIT",
+        goal: `Update ${path}`,
+        constraints: [],
+        allowedScope: [path],
+        criteria: [{ id: "C1", description: "Target is updated" }],
+        contextRefs: [path],
+        dependsOn: [],
+        maxAttempts: 2,
+        maxQuestions: 1,
+        verificationGates: [{ type: "command_exit_zero", command: "bun", args: ["test"] }],
+      });
+      await store.accept(dispatched.taskId, dispatched.handoffToken);
+      writeFileSync(join(workspace, path), "updated\n", "utf8");
+      return { path, dispatched };
+    }));
+
+    let startVerifications!: () => void;
+    let finishVerifications!: () => void;
+    const verificationsStarted = new Promise<void>((resolve) => { startVerifications = resolve; });
+    const verificationsFinished = new Promise<void>((resolve) => { finishVerifications = resolve; });
+    let runningVerifications = 0;
+    const storeInternals = store as unknown as { runVerificationGates: () => Promise<string[]> };
+    storeInternals.runVerificationGates = async () => {
+      runningVerifications += 1;
+      if (runningVerifications === 2) startVerifications();
+      await verificationsFinished;
+      return [];
+    };
+
+    const completions = dispatchedTasks.map(({ path, dispatched }) => store.complete({
+      taskId: dispatched.taskId,
+      handoffToken: dispatched.handoffToken,
+      summary: `Updated ${path}`,
+      modifiedFiles: [path],
+      facts: [{ statement: `${path} changed`, reference: `${path}:1` }],
+      assumptions: [],
+      criteria: [{ criterionId: "C1", passed: true, evidence: `${path} now contains updated` }],
+    }));
+    await verificationsStarted;
+
+    try {
+      const concurrentDispatch = store.dispatch({
+        parentSessionId: "parent-concurrent-other",
+        kind: "INSPECT",
+        goal: "Inspect independently",
+        constraints: [],
+        allowedScope: [],
+        criteria: [{ id: "C1", description: "Independent inspection completes" }],
+        contextRefs: [],
+        dependsOn: [],
+        maxAttempts: 1,
+        maxQuestions: 1,
+      });
+      const probe = await Promise.race([
+        concurrentDispatch,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("STORE_BLOCKED_DURING_VERIFICATION")), 1_000)),
+      ]);
+      expect(probe.status).toBe("CREATED");
+      await expect(store.askParent(probe.taskId, probe.handoffToken, "BLOCKER", "Which input should be used?", ["Current", "Previous"]))
+        .resolves.toMatchObject({ status: "OPEN" });
+      await expect(store.report(probe.taskId, probe.parentSecret)).resolves.toMatchObject({ status: "WAITING_PARENT" });
+    } finally {
+      finishVerifications();
+      await Promise.all(completions);
+    }
+  });
+
+  test("rejects a completion when task state changes during verification", async () => {
+    const store = await createStore();
+    const workspace = (store as unknown as { workspaceRoot: string }).workspaceRoot;
+    writeFileSync(join(workspace, "target.txt"), "initial\n", "utf8");
+    const dispatched = await store.dispatch({
+      parentSessionId: "parent-changed",
+      kind: "EDIT",
+      goal: "Update target",
+      constraints: [],
+      allowedScope: ["target.txt"],
+      criteria: [{ id: "C1", description: "Target is updated" }],
+      contextRefs: ["target.txt"],
+      dependsOn: [],
+      maxAttempts: 2,
+      maxQuestions: 1,
+      verificationGates: [{ type: "command_exit_zero", command: "bun", args: ["test"] }],
+    });
+    await store.accept(dispatched.taskId, dispatched.handoffToken);
+    writeFileSync(join(workspace, "target.txt"), "updated\n", "utf8");
+
+    let startVerification!: () => void;
+    let finishVerification!: () => void;
+    const verificationStarted = new Promise<void>((resolve) => { startVerification = resolve; });
+    const verificationFinished = new Promise<void>((resolve) => { finishVerification = resolve; });
+    const storeInternals = store as unknown as { runVerificationGates: () => Promise<string[]> };
+    storeInternals.runVerificationGates = async () => {
+      startVerification();
+      await verificationFinished;
+      return [];
+    };
+
+    const completion = store.complete({
+      taskId: dispatched.taskId,
+      handoffToken: dispatched.handoffToken,
+      summary: "Updated target",
+      modifiedFiles: ["target.txt"],
+      facts: [{ statement: "Target changed", reference: "target.txt:1" }],
+      assumptions: [],
+      criteria: [{ criterionId: "C1", passed: true, evidence: "target.txt now contains updated" }],
+    });
+    await verificationStarted;
+    await expect(store.askParent(dispatched.taskId, dispatched.handoffToken, "MISSING_CONTEXT", "Which behavior is required?", ["A", "B"]))
+      .resolves.toMatchObject({ status: "OPEN" });
+    finishVerification();
+
+    await expect(completion).rejects.toThrow("TASK_CHANGED_DURING_VERIFICATION");
+    await expect(store.report(dispatched.taskId, dispatched.parentSecret)).resolves.toMatchObject({ status: "WAITING_PARENT" });
+  });
+
+  test("does not overwrite a review decision made during approval verification", async () => {
+    const store = await createStore();
+    const workspace = (store as unknown as { workspaceRoot: string }).workspaceRoot;
+    writeFileSync(join(workspace, "target.txt"), "initial\n", "utf8");
+    const dispatched = await store.dispatch({
+      parentSessionId: "parent-review-changed",
+      kind: "EDIT",
+      goal: "Update target",
+      constraints: [],
+      allowedScope: ["target.txt"],
+      criteria: [{ id: "C1", description: "Target is updated" }],
+      contextRefs: ["target.txt"],
+      dependsOn: [],
+      maxAttempts: 2,
+      maxQuestions: 1,
+      verificationGates: [{ type: "require_actual_change" }],
+    });
+    await store.accept(dispatched.taskId, dispatched.handoffToken);
+    writeFileSync(join(workspace, "target.txt"), "updated\n", "utf8");
+    await store.complete({
+      taskId: dispatched.taskId,
+      handoffToken: dispatched.handoffToken,
+      summary: "Updated target",
+      modifiedFiles: ["target.txt"],
+      facts: [{ statement: "Target changed", reference: "target.txt:1" }],
+      assumptions: ["The caller expects this update"],
+      criteria: [{ criterionId: "C1", passed: true, evidence: "target.txt now contains updated" }],
+    });
+
+    let startVerification!: () => void;
+    let finishVerification!: () => void;
+    const verificationStarted = new Promise<void>((resolve) => { startVerification = resolve; });
+    const verificationFinished = new Promise<void>((resolve) => { finishVerification = resolve; });
+    const storeInternals = store as unknown as { runVerificationGates: () => Promise<string[]> };
+    storeInternals.runVerificationGates = async () => {
+      startVerification();
+      await verificationFinished;
+      return [];
+    };
+
+    const approval = store.review(dispatched.taskId, dispatched.parentSecret, true);
+    await verificationStarted;
+    await expect(store.review(dispatched.taskId, dispatched.parentSecret, false, "Revise the assumption"))
+      .resolves.toMatchObject({ status: "IN_PROGRESS" });
+    finishVerification();
+
+    await expect(approval).rejects.toThrow("TASK_CHANGED_DURING_REVIEW");
+    await expect(store.report(dispatched.taskId, dispatched.parentSecret)).resolves.toMatchObject({ status: "IN_PROGRESS" });
+  });
+
   test("marks assumptions for parent review instead of completing", async () => {
     const store = await createStore();
     const workspace = (store as unknown as { workspaceRoot: string }).workspaceRoot;
