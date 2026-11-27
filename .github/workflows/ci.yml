@@ -22,7 +22,7 @@ jobs:
           path: extensions/tsugi/bin/session-scan-*
           if-no-files-found: error
       - run: |
-          for extension in tsugi ne-memory eien pack; do
+          for extension in tsugi ne-memory eien makaseru pack; do
             cp LICENSE extensions/$extension/LICENSE
             (cd extensions/$extension && ../../node_modules/.bin/vsce package --no-dependencies --skip-license)
           done

@@ -12,6 +12,7 @@ on:
           - tsugi
           - ne-memory
           - eien
+          - makaseru
           - pack
 jobs:
   publish:
@@ -32,7 +33,7 @@ jobs:
           TARGET_EXTENSION: ${{ inputs.extension }}
         run: |
           if [ "$TARGET_EXTENSION" = "all" ]; then
-            targets="tsugi ne-memory eien pack"
+            targets="tsugi ne-memory eien makaseru pack"
           else
             targets="$TARGET_EXTENSION"
           fi

@@ -1,0 +1,53 @@
+{
+  "name": "makaseru-mcp",
+  "displayName": "Makaseru MCP - Task Handoff & Verification",
+  "description": "Give lightweight agents small tasks, pause for parent decisions, and verify completion using scope, evidence, file state, and objective checks.",
+  "publisher": "ShunsukeF",
+  "license": "MIT",
+  "main": "./dist/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/furukawa658/vscode-chat-tools"
+  },
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": ["AI", "Chat", "Other"],
+  "keywords": [
+    "mcp",
+    "copilot-chat",
+    "subagent",
+    "task-handoff",
+    "lightweight-model",
+    "verification",
+    "hallucination",
+    "git-scope"
+  ],
+  "version": "0.1.0",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "shunsukef.makaseru-mcp",
+        "label": "Makaseru MCP"
+      }
+    ],
+    "configuration": {
+      "title": "Makaseru MCP",
+      "properties": {
+        "makaseru.allowedCommands": {
+          "type": "string",
+          "default": "cargo,npm,bun,pnpm,yarn,dotnet,pytest,python,go,git",
+          "description": "Comma-separated command names that Makaseru may execute as objective verification gates."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "makaseru.showStatus",
+        "title": "Makaseru MCP: Show Status"
+      }
+    ]
+  },
+  "icon": "icon.png"
+}
